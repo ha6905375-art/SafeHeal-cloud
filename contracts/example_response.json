@@ -1,0 +1,27 @@
+{
+  "status": "completed",
+  "findings": [
+    {
+      "id": "F-001",
+      "issue": "Container runs as root",
+      "severity": "HIGH",
+      "description": "No non-root USER configured",
+      "evidence": "Dockerfile",
+      "recommendation": "Use a non-root user"
+    }
+  ],
+  "correlations": [],
+  "patch": {
+    "patched_dockerfile": "",
+    "diff": ""
+  },
+  "tests": {
+    "status": "not_run",
+    "passed": null,
+    "details": []
+  },
+  "response": {
+    "mode": "simulation",
+    "actions": []
+  }
+}
