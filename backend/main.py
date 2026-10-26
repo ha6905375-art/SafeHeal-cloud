@@ -1,8 +1,10 @@
 import json
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from starlette.concurrency import run_in_threadpool
 from backend.simulation import simulate_response
 from backend.validator import validate_dockerfile
+from ai.service import analyze_evidence
 
 app = FastAPI(
     title="Autonomous Cyber Defense Agent",
@@ -87,25 +89,34 @@ async def analyze(
                 detail="Attack logs must contain an object or array"
             )
 
-    # 5. Security response simulation
-    simulation_result = simulate_response(logs)
+    # 5. Analyze evidence without blocking the async request loop.
+    # The AI service returns ai_error metadata instead of silently using mock.
+    result = await run_in_threadpool(analyze_evidence, docker_text, logs)
 
-    # 6. Dockerfile security validation
-    validation_result = validate_dockerfile(docker_text)
-
-    # 7. Temporary response until AI integration
-    return {
+    # 6. Validate the uploaded Dockerfile independently of AI.
+    original_review = validate_dockerfile(docker_text)
+    result["tests"] = {
         "status": "completed",
-        "findings": [],
-        "correlations": [],
-        "patch": {
-            "patched_dockerfile": "",
-            "diff": ""
-        },
-        "tests": {
-            "status": "completed",
-            "passed": validation_result["passed"],
-            "details": validation_result["details"]
-        },
-        "response": simulation_result
+        "passed": original_review["passed"],
+        "details": original_review["details"],
     }
+
+    # 7. A proposed patch is only statically reviewed, never executed.
+    proposed = result.get("patch", {}).get("patched_dockerfile", "")
+    if isinstance(proposed, str) and proposed.strip():
+        patch_review = validate_dockerfile(proposed)
+        result["tests"]["proposed_patch"] = {
+            "status": "static_review_only",
+            "passed": patch_review["passed"],
+            "details": patch_review["details"],
+        }
+        # A passing text review is not a Docker build/runtime validation.
+        if not patch_review["passed"] and result.get("ai", {}).get("patch_status") == "proposed_not_validated":
+            result["ai"]["patch_status"] = "proposed_failed_static_review"
+            result["ai"].setdefault("warnings", []).append(
+                "Backend static review found issues in the proposed Dockerfile."
+            )
+
+    # 8. Only the backend owns simulated response actions.
+    result["response"] = simulate_response(logs)
+    return result
