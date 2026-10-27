@@ -1,1 +1,168 @@
+[
+  {
+    "timestamp": "2026-10-27T10:00:01Z",
+    "source_ip": "10.0.0.15",
+    "event_type": "HTTP_REQUEST",
+    "endpoint": "/index.html",
+    "status": 200,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "action_taken": "ALLOWED",
+    "description": "Normal regular customer browsing the homepage"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:03Z",
+    "source_ip": "198.51.100.44",
+    "event_type": "PORT_SCAN",
+    "target_port": 21,
+    "status": "CONNECTION_REFUSED",
+    "user_agent": "Nmap NSE",
+    "action_taken": "LOGGED",
+    "description": "Port probe detected on FTP service"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:04Z",
+    "source_ip": "198.51.100.44",
+    "event_type": "PORT_SCAN",
+    "target_port": 22,
+    "status": "CONNECTION_OPEN",
+    "user_agent": "Nmap NSE",
+    "action_taken": "LOGGED",
+    "description": "Port scan identified open SSH service"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:05Z",
+    "source_ip": "198.51.100.44",
+    "event_type": "PORT_SCAN",
+    "target_port": 8080,
+    "status": "CONNECTION_REFUSED",
+    "user_agent": "Nmap NSE",
+    "action_taken": "LOGGED",
+    "description": "Port scan on alternate web port"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:07Z",
+    "source_ip": "10.0.0.22",
+    "event_type": "API_CALL",
+    "endpoint": "/api/v1/products",
+    "status": 200,
+    "user_agent": "MobileApp/2.4 (iOS)",
+    "action_taken": "ALLOWED",
+    "description": "Valid mobile application data retrieval"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:10Z",
+    "source_ip": "198.51.100.44",
+    "event_type": "BRUTE_FORCE",
+    "endpoint": "/login",
+    "username_attempt": "admin",
+    "status": 401,
+    "user_agent": "Python-requests/2.28",
+    "action_taken": "ALERT_LOW",
+    "description": "Failed authentication attempt"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:11Z",
+    "source_ip": "198.51.100.44",
+    "event_type": "BRUTE_FORCE",
+    "endpoint": "/login",
+    "username_attempt": "root",
+    "status": 401,
+    "user_agent": "Python-requests/2.28",
+    "action_taken": "ALERT_MEDIUM",
+    "description": "Failed authentication attempt - root target"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:12Z",
+    "source_ip": "198.51.100.44",
+    "event_type": "BRUTE_FORCE",
+    "endpoint": "/login",
+    "username_attempt": "administrator",
+    "status": 401,
+    "user_agent": "Python-requests/2.28",
+    "action_taken": "ALERT_HIGH",
+    "description": "Rapid repeated login failures detected"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:13Z",
+    "source_ip": "198.51.100.44",
+    "event_type": "BRUTE_FORCE",
+    "endpoint": "/login",
+    "username_attempt": "superadmin",
+    "status": 401,
+    "user_agent": "Python-requests/2.28",
+    "action_taken": "ALERT_HIGH",
+    "description": "Dictionary attack signature confirmed"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:15Z",
+    "source_ip": "172.16.0.8",
+    "event_type": "HTTP_REQUEST",
+    "endpoint": "/contact",
+    "status": 200,
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X)",
+    "action_taken": "ALLOWED",
+    "description": "Legitimate contact form load"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:18Z",
+    "source_ip": "203.0.113.88",
+    "event_type": "EXPLOIT_ATTEMPT",
+    "endpoint": "/api/users?id=1%27%20OR%20%271%27=%271",
+    "status": 500,
+    "user_agent": "sqlmap/1.6",
+    "action_taken": "BLOCKED",
+    "description": "SQL Injection pattern matched in query parameter"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:19Z",
+    "source_ip": "203.0.113.88",
+    "event_type": "PATH_TRAVERSAL",
+    "endpoint": "/download?file=../../../../etc/passwd",
+    "status": 403,
+    "user_agent": "sqlmap/1.6",
+    "action_taken": "BLOCKED",
+    "description": "Attempted arbitrary file disclosure via directory traversal"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:20Z",
+    "source_ip": "10.0.0.15",
+    "event_type": "HTTP_REQUEST",
+    "endpoint": "/checkout",
+    "status": 200,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "action_taken": "ALLOWED",
+    "description": "Legitimate payment completion workflow"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:22Z",
+    "source_ip": "198.51.100.44",
+    "event_type": "INCIDENT_ISOLATION",
+    "endpoint": "FIREWALL_POLICY_UPDATE",
+    "status": 200,
+    "user_agent": "SafeHeal_Autonomous_Agent",
+    "action_taken": "QUARANTINED",
+    "description": "IP 198.51.100.44 isolated at border firewall; blast radius limited to zero"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:25Z",
+    "source_ip": "203.0.113.88",
+    "event_type": "INCIDENT_ISOLATION",
+    "endpoint": "WAF_DROP_RULE",
+    "status": 200,
+    "user_agent": "SafeHeal_Autonomous_Agent",
+    "action_taken": "QUARANTINED",
+    "description": "IP 203.0.113.88 permanently blacklisted due to SQLi payload injection"
+  },
+  {
+    "timestamp": "2026-10-27T10:00:28Z",
+    "source_ip": "10.0.0.99",
+    "event_type": "HTTP_REQUEST",
+    "endpoint": "/dashboard",
+    "status": 200,
+    "user_agent": "Mozilla/5.0 (iPad; CPU OS 17_0)",
+    "action_taken": "ALLOWED",
+    "description": "Legitimate internal staff access unaffected"
+  }
+]
+
 
