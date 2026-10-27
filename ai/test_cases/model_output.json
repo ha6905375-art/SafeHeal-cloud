@@ -3,11 +3,11 @@
   "risk_level": "HIGH",
   "findings": [
     {
-      "title": "Container is NOT running as root",
+      "title": "Container Running as Root",
       "severity": "HIGH",
-      "evidence": ["No USER instruction found"],
-      "description": "The container is configured to run without root privileges.",
-      "recommendation": "Create and use a non-root user."
+      "evidence": ["No USER instruction is present in the Dockerfile"],
+      "description": "The Dockerfile never switches to a non-root user, so the application process runs as root by default inside the container.",
+      "recommendation": "Create a dedicated non-root user and switch to it with a USER instruction."
     },
     {
       "title": "Unnecessary SSH Service",

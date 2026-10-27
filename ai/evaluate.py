@@ -12,13 +12,49 @@ EXPECTED_FILE = TEST_DIR / "expected_findings.json"
 DEFAULT_OUTPUT_FILE = TEST_DIR / "model_output.json"
 
 
-# Keywords used for preliminary evaluation
+VULNERABLE_DOCKERFILE = TEST_DIR / "vulnerable.Dockerfile"
+
+
+# Keywords used for preliminary evaluation.
+# Each pattern needs context, not just a keyword: e.g. "root" alone would also
+# match an SSH finding about a failed root login, and "credential" alone would
+# match SSH credential guessing.
 FINDING_PATTERNS = {
-    "SEC-001": r"\broot\b|\bnon-root\b",
-    "SEC-002": r"\bssh\b|openssh|port 22",
-    "SEC-003": r"secret|credential|aws_secret_key",
-    "SEC-005": r"\bdebug\b",
+    "SEC-001": (
+        r"\b(run|runs|running|executes?|executing)\s+(as|with)\s+(the\s+)?(default\s+)?root\b"
+        r"|\bnon-root\b"
+        r"|\bno\s+USER\s+instruction\b"
+        r"|\bUSER\s+instruction\s+is\s+(missing|absent)\b"
+        r"|\bmissing\s+USER\b"
+        r"|\bdefaults?\s+to\s+(the\s+)?root\b"
+    ),
+    "SEC-002": r"\bssh\b|openssh|\bport\s+22\b|\bEXPOSE\s+22\b",
+    "SEC-003": (
+        r"aws_secret_key"
+        r"|hard-?coded\s+(\w+\s+)?(secret|credential|password|api[\s_-]?key|token|key)"
+        r"|\b(secret|credential|password|api[\s_-]?key|token)s?\b[^.]{0,60}"
+        r"\b(hard-?coded|in\s+(an?\s+)?ENV|ENV\s+instruction|embedded|plain-?text)"
+        r"|\b(ENV|ARG)\s+\w*(SECRET|PASSWORD|TOKEN|API_KEY|PRIVATE_KEY)\w*"
+    ),
+    # No leading \b before DEBUG: in "DEBUG_MODE" the underscore is a word character.
+    "SEC-005": (
+        r"debug[\s_-]?mode"
+        r"|\bdebug(ging)?\s+(is\s+)?(enabled|on|true|settings?|flag)"
+        r"|\bDEBUG\s*=\s*['\"]?(true|1|on)\b"
+    ),
 }
+
+# A finding that explicitly says the container is NOT running as root does not
+# report the root-user weakness, even if its evidence mentions USER.
+ROOT_NEGATION_PATTERN = (
+    r"\b(is|are|does|do)\s+not\s+(run|running)\s+as\s+root\b"
+    r"|\bwithout\s+root\s+privileges\b"
+    r"|\b(is|are)\s+(already\s+)?running\s+as\s+(a\s+)?non-root\b"
+    r"|\b(already\s+)?runs\s+as\s+(a\s+)?non-root\b"
+)
+
+# Users that exist in the official python base images without being created.
+BASE_IMAGE_USERS = {"nobody", "daemon", "bin", "sys", "www-data"}
 
 
 def load_json(file_path):
@@ -50,7 +86,7 @@ def validate_output(data):
         "next_steps"
     ]
 
-    if "risk_level" in data or "attack_analysis" in data:
+    if is_legacy_format(data):
         required_fields = legacy_fields
     else:
         required_fields = current_fields
@@ -63,6 +99,24 @@ def validate_output(data):
     return missing
 
 
+def is_legacy_format(data):
+    """Legacy outputs use risk_level/attack_analysis instead of correlations."""
+
+    return "risk_level" in data or "attack_analysis" in data
+
+
+def schema_errors(data):
+    """Validate a current-format output against ai/output_schema.json."""
+
+    # Allow running as `python ai/evaluate.py` (repo root not on sys.path).
+    repo_root = str(BASE_DIR.parent)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+    from ai.schema_validation import validate_against_schema
+
+    return validate_against_schema(data)
+
+
 def detect_finding(finding, pattern):
     """Check whether a finding matches a security category."""
 
@@ -70,13 +124,8 @@ def detect_finding(finding, pattern):
     description = str(finding.get("description", ""))
     # Avoid counting explicit negation as a root vulnerability.
     if pattern == FINDING_PATTERNS["SEC-001"]:
-        negative_root = (
-            r"\bnot\s+running\s+as\s+root\b"
-            r"|\bwithout\s+root\s+privileges\b"
-        )
-
         if re.search(
-            negative_root,
+            ROOT_NEGATION_PATTERN,
             title + " " + description,
             re.IGNORECASE
         ):
@@ -133,6 +182,23 @@ def evaluate_findings(actual, expected):
     return detected, missed
 
 
+def original_secret_values(dockerfile=VULNERABLE_DOCKERFILE):
+    """Literal values of secret-like ENV/ARG keys in the vulnerable test Dockerfile."""
+
+    try:
+        text = Path(dockerfile).read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    values = re.findall(
+        r"(?mi)^\s*(?:ENV|ARG)\s+\w*(?:SECRET|PASSWORD|TOKEN|API_KEY|PRIVATE_KEY)\w*"
+        r"\s*[= ]\s*[\"']?([^\"'\s]+)",
+        text
+    )
+    # Very short values would match unrelated text.
+    return [value for value in values if len(value) >= 4]
+
+
 def evaluate_patch(patch):
     """Check basic patch requirements without executing it."""
 
@@ -144,9 +210,30 @@ def evaluate_patch(patch):
     if not isinstance(patch, str) or not patch.strip():
         return ["No Dockerfile patch was provided."]
 
+    users = re.findall(r"(?m)^\s*USER\s+(\S+)", patch)
+    final_user = users[-1].split(":")[0] if users else ""
+    final_user_line = (
+        [m.start() for m in re.finditer(r"(?m)^\s*USER\s+", patch)][-1]
+        if users else -1
+    )
+    creation = re.search(
+        rf"(?m)^\s*RUN\b.*\b(useradd|adduser)\b.*(?<![\w-]){re.escape(final_user)}(?![\w-])",
+        patch
+    ) if final_user else None
+
     checks = {
+        # USER root (or uid 0) is still root.
         "Non-root USER instruction":
-            bool(re.search(r"(?m)^\s*USER\s+", patch)),
+            bool(final_user) and final_user.lower() not in ("root", "0"),
+
+        # A named user must be created before USER, or the container won't start.
+        "Non-root user is created before USER":
+            bool(final_user) and (
+                final_user.isdigit()
+                or final_user.startswith("$")
+                or final_user.lower() in BASE_IMAGE_USERS
+                or (creation is not None and creation.start() < final_user_line)
+            ),
 
         "Preserves WORKDIR":
             bool(re.search(r"(?m)^\s*WORKDIR\s+", patch)),
@@ -166,11 +253,14 @@ def evaluate_patch(patch):
         "Removes hardcoded AWS_SECRET_KEY":
             not bool(
                 re.search(
-                    r"(?m)^\s*ENV\s+AWS_SECRET_KEY\s*[= ]",
+                    r"(?m)^\s*(ENV|ARG)\s+AWS_SECRET_KEY\s*[= ]",
                     patch,
                     re.IGNORECASE
                 )
-            )
+            ),
+
+        "Does not reproduce the original secret value":
+            not any(value in patch for value in original_secret_values()),
     }
 
     return [
@@ -188,6 +278,10 @@ def check_unsupported_claims(actual):
         actual.get("attack_analysis", ""),
         actual.get("summary", "")
     ]
+
+    patch = actual.get("patch")
+    if isinstance(patch, dict):
+        analysis_parts.append(patch.get("summary", ""))
 
     findings = actual.get("findings", [])
     if isinstance(findings, list):
@@ -229,6 +323,35 @@ def check_unsupported_claims(actual):
         if re.search(pattern, analysis, re.IGNORECASE):
             issues.append(
                 "Model incorrectly assumes EXPOSE 22 makes SSH publicly accessible."
+            )
+            break
+
+    # The AI never builds or runs the patch, so it cannot claim it was tested.
+    tested_patterns = [
+        (
+            r"\bpatch\s+(was|has\s+been|is)\s+(successfully\s+)?"
+            r"(tested|validated|verified|applied)\b"
+        ),
+        r"\b(tests?|validation)\s+(passed|succeeded)\b"
+    ]
+
+    for pattern in tested_patterns:
+        if re.search(pattern, analysis, re.IGNORECASE):
+            issues.append(
+                "Model claims the patch was tested or applied without external validation."
+            )
+            break
+
+    # The example credential must not be treated as a confirmed real secret.
+    valid_secret_patterns = [
+        r"\b(credential|secret|key)\s+is\s+(a\s+)?(confirmed\s+)?(valid|active|live)\b",
+        r"\bconfirmed\s+(valid|active|live)\s+(credential|secret|key)\b"
+    ]
+
+    for pattern in valid_secret_patterns:
+        if re.search(pattern, analysis, re.IGNORECASE):
+            issues.append(
+                "Model claims the example credential is a confirmed valid secret."
             )
             break
     return issues
@@ -449,35 +572,114 @@ def evaluate_terraform():
     print(f"Detected: {detected}/{total}")
 
     print("\nNote: This is a preliminary title-matching evaluation.")
-def main():
+def service_result_to_model_output(result):
+    """Convert an ai.service.analyze_evidence() result back into the AI
+    Reasoning output format (ai/output_schema.json) so it can be evaluated."""
 
-    output_file = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else DEFAULT_OUTPUT_FILE
+    ai = result.get("ai", {})
+    evidence = ai.get("finding_evidence", {})
+    patch = result.get("patch", {})
+
+    return {
+        "summary": ai.get("summary", ""),
+        "findings": [
+            {**finding, "evidence": evidence.get(finding.get("id"), "")}
+            for finding in result.get("findings", [])
+        ],
+        "correlations": result.get("correlations", []),
+        "patch": {
+            "patched_dockerfile": patch.get("patched_dockerfile", ""),
+            # The service computes its own diff; the model is asked for "".
+            "diff": "",
+            "summary": patch.get("summary", ""),
+        },
+        "limitations": ai.get("limitations", []),
+        "next_steps": ai.get("next_steps", []),
+    }
+
+
+def run_pipeline(mode):
+    """Run the real analysis pipeline on the test case and return its output.
+
+    mode "live" calls the Nebius model configured in .env; "mock" uses the
+    offline rule-based mock (useful only to check the pipeline, not the AI).
+    Returns None if the analysis failed (the error is printed).
+    """
+
+    import dataclasses
+
+    repo_root = str(BASE_DIR.parent)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+    from ai.config import get_settings
+    from ai.service import analyze_evidence
+
+    settings = dataclasses.replace(get_settings(), mode=mode)
+    dockerfile = VULNERABLE_DOCKERFILE.read_text(encoding="utf-8")
+    logs = load_json(TEST_DIR / "attack_logs.json")
+
+    print(f"Running analysis pipeline (mode={mode}, model={settings.model or 'n/a'})...")
+    result = analyze_evidence(dockerfile, logs, settings=settings)
+
+    if result["status"] != "completed":
+        error = result["ai"].get("error") or {}
+        print(f"ERROR: analysis failed [{error.get('code')}]: {error.get('message')}")
+        return None
+
+    schema = result["ai"].get("schema_validation", {})
+    if not schema.get("valid", True):
+        print("Raw model reply did not fully match ai/output_schema.json:")
+        for error in schema.get("errors", []):
+            print(f"  - {error}")
+
+    print(f"Source: {result['ai']['source']}  Model: {result['ai']['model']}")
+    return service_result_to_model_output(result)
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Evaluate AI security analysis output.")
+    parser.add_argument(
+        "output_file", nargs="?", default=str(DEFAULT_OUTPUT_FILE),
+        help="saved model output JSON (default: test_cases/model_output.json)"
     )
+    parser.add_argument(
+        "--run", choices=["mock", "live"],
+        help="run the analysis pipeline on test_cases/ and evaluate its output "
+             "instead of reading a saved file (live uses the Nebius API)"
+    )
+    args = parser.parse_args()
 
     if not EXPECTED_FILE.exists():
         print("ERROR: expected_findings.json not found.")
-        return
+        return 1
 
-    if not output_file.exists():
-        print("Nemotron output file not found yet.")
-        print(f"Expected path: {output_file}")
-        print("Save the model response as model_output.json.")
-        return
+    expected = load_json(EXPECTED_FILE)
 
-    try:
-        expected = load_json(EXPECTED_FILE)
-        actual = load_json(output_file)
+    if args.run:
+        actual = run_pipeline(args.run)
+        if actual is None:
+            return 1
+    else:
+        output_file = Path(args.output_file)
 
-    except (json.JSONDecodeError, OSError) as error:
-        print(f"ERROR reading JSON: {error}")
-        return
+        if not output_file.exists():
+            print("Nemotron output file not found yet.")
+            print(f"Expected path: {output_file}")
+            print("Save the model response as model_output.json.")
+            return 1
+
+        try:
+            actual = load_json(output_file)
+
+        except (json.JSONDecodeError, OSError) as error:
+            print(f"ERROR reading JSON: {error}")
+            return 1
 
     if not isinstance(actual, dict):
         print("ERROR: Model output must be a JSON object.")
-        return
+        return 1
 
     print("\n===== CYBER DEFENSE AI EVALUATION =====\n")
 
@@ -490,6 +692,16 @@ def main():
             print(f"  - {field}")
     else:
         print("[PASS] Required output fields are present.")
+
+    # Current-format outputs must also match ai/output_schema.json.
+    if not is_legacy_format(actual):
+        errors = schema_errors(actual)
+        if errors:
+            print("Output schema issues (ai/output_schema.json):")
+            for error in errors:
+                print(f"  - {error}")
+        else:
+            print("[PASS] Output matches ai/output_schema.json.")
 
     # Evaluate security findings
     detected, missed = evaluate_findings(actual, expected)
@@ -535,7 +747,8 @@ def main():
     evaluate_vulnerability_correlation(actual)
     evaluate_terraform()
     print("\n===== EVALUATION COMPLETE =====")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
