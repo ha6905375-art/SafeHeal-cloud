@@ -1,0 +1,43 @@
+{
+  "summary": "Terraform configuration contains security risks related to network access and IAM permissions.",
+  "risk_level": "HIGH",
+  "findings": [
+    {
+      "title": "Unrestricted SSH Access",
+      "severity": "HIGH",
+      "evidence": [
+        "Port 22 is allowed from 0.0.0.0/0"
+      ],
+      "description": "The security group allows inbound SSH traffic from all IPv4 addresses.",
+      "recommendation": "Restrict SSH ingress to authorized IP ranges."
+    },
+    {
+      "title": "Overly Permissive IAM Policy",
+      "severity": "CRITICAL",
+      "evidence": [
+        "Action is set to *",
+        "Resource is set to *"
+      ],
+      "description": "The IAM policy grants overly broad permissions.",
+      "recommendation": "Apply least-privilege permissions based on actual infrastructure requirements."
+    },
+    {
+      "title": "Unrestricted Outbound Traffic",
+      "severity": "LOW",
+      "evidence": [
+        "Egress allows all protocols to 0.0.0.0/0"
+      ],
+      "description": "The security group allows unrestricted outbound traffic, which requires review.",
+      "recommendation": "Review outbound requirements and restrict unnecessary access."
+    }
+  ],
+  "attack_analysis": "No Terraform-specific attack logs were provided. No successful exploitation is confirmed.",
+  "patch": null,
+  "containment_actions": [],
+  "tests": [
+    "Run terraform fmt -check.",
+    "Run terraform validate after initializing the required providers.",
+    "Review IAM permissions.",
+    "Verify SSH ingress restrictions."
+  ]
+}

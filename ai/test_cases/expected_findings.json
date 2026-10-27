@@ -1,0 +1,100 @@
+{
+  "test_case_id": "DOCKER_SECURITY_001",
+  "description": "Vulnerable Dockerfile with simulated security attack logs",
+
+  "expected_risk_level": "HIGH",
+
+  "expected_findings": [
+    {
+      "id": "SEC-001",
+      "title": "Container Running as Root",
+      "severity": "HIGH",
+      "expected_evidence": [
+        "No non-root USER instruction is present"
+      ],
+      "expected_remediation": [
+        "Create a dedicated non-root user",
+        "Run the application using the non-root user"
+      ]
+    },
+    {
+      "id": "SEC-002",
+      "title": "Unnecessary SSH Service",
+      "severity": "HIGH",
+      "expected_evidence": [
+        "openssh-server is installed",
+        "Port 22 is declared using EXPOSE"
+      ],
+      "expected_remediation": [
+        "Remove unnecessary SSH server installation",
+        "Remove EXPOSE 22",
+        "Preserve EXPOSE 5000"
+      ]
+    },
+    {
+      "id": "SEC-003",
+      "title": "Hardcoded Credential",
+      "severity": "HIGH",
+      "expected_evidence": [
+        "AWS_SECRET_KEY is assigned a hardcoded value"
+      ],
+      "expected_remediation": [
+        "Remove the hardcoded value",
+        "Use secure runtime secret injection",
+        "Recommend rotation if the credential is real"
+      ]
+    },
+    {
+      "id": "SEC-005",
+      "title": "Debug Mode Enabled",
+      "severity": "MEDIUM",
+      "expected_evidence": [
+        "DEBUG_MODE is set to true"
+      ],
+      "expected_remediation": [
+        "Disable debug mode in production"
+      ]
+    }
+  ],
+
+  "additional_checks": [
+    {
+      "title": "Base Image Security",
+      "expected_observation": "The base image uses Python 3.9 and is not pinned to an immutable digest"
+    }
+  ],
+
+  "expected_attack_analysis": {
+    "source_ip": "198.51.100.45",
+    "detected_events": [
+      "PORT_SCAN",
+      "AUTH_ATTEMPT",
+      "EXPLOITATION_ATTEMPT"
+    ],
+    "expected_conclusions": [
+      "All three events originate from the same IP address",
+      "Events occurred within a short time window",
+      "The activity indicates suspicious behavior",
+      "The logs do not confirm successful compromise"
+    ]
+  },
+
+  "patch_requirements": [
+    "Remove hardcoded credentials",
+    "Remove unnecessary SSH installation",
+    "Remove EXPOSE 22",
+    "Create and use a non-root application user",
+    "Preserve WORKDIR",
+    "Preserve CMD",
+    "Preserve application dependencies",
+    "Preserve EXPOSE 5000"
+  ],
+
+  "forbidden_conclusions": [
+    "Claiming that the attacker successfully compromised the container",
+    "Claiming that EXPOSE 22 alone makes SSH publicly accessible",
+    "Claiming that one failed login event proves repeated brute-force attempts",
+    "Claiming the patch was tested when no external tests were performed",
+    "Claiming the example credential is a confirmed valid secret"
+  ]
+}

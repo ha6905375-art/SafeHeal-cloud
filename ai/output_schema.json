@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cyber Defense AI Model Output",
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+          },
+          "description": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "recommendation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "severity",
+          "description",
+          "evidence",
+          "recommendation"
+        ]
+      }
+    },
+    "correlations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": ["string", "null"]
+          },
+          "source_ip": {
+            "type": ["string", "null"]
+          },
+          "related_finding_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_type",
+          "source_ip",
+          "related_finding_ids",
+          "explanation"
+        ]
+      }
+    },
+    "patch": {
+      "type": "object",
+      "properties": {
+        "patched_dockerfile": {
+          "type": "string"
+        },
+        "diff": {
+          "type": "string",
+          "const": ""
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "patched_dockerfile",
+        "diff",
+        "summary"
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "summary",
+    "findings",
+    "correlations",
+    "patch",
+    "limitations",
+    "next_steps"
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "test_case_id": "TERRAFORM_SECURITY_001",
+  "description": "AWS Terraform configuration with insecure security group and IAM policy settings",
+
+  "expected_risk_level": "HIGH",
+
+  "expected_findings": [
+    {
+      "id": "TF-001",
+      "title": "Unrestricted SSH Access",
+      "severity": "HIGH",
+      "expected_evidence": [
+        "Security group allows inbound traffic on port 22",
+        "SSH access is permitted from 0.0.0.0/0"
+      ],
+      "expected_remediation": [
+        "Restrict SSH access to trusted IP addresses",
+        "Use the principle of least privilege",
+        "Preserve required administrative access"
+      ]
+    },
+    {
+      "id": "TF-002",
+      "title": "Overly Permissive IAM Policy",
+      "severity": "CRITICAL",
+      "expected_evidence": [
+        "IAM policy uses Action wildcard",
+        "IAM policy uses Resource wildcard",
+        "Effect is set to Allow"
+      ],
+      "expected_remediation": [
+        "Replace wildcard permissions with required actions",
+        "Restrict access to necessary resources",
+        "Apply least-privilege IAM policies"
+      ]
+    },
+    {
+      "id": "TF-003",
+      "title": "Unrestricted Outbound Traffic",
+      "severity": "LOW",
+      "expected_evidence": [
+        "Security group allows all outbound protocols",
+        "Outbound traffic is permitted to 0.0.0.0/0"
+      ],
+      "expected_remediation": [
+        "Review outbound traffic requirements",
+        "Restrict unnecessary outbound access where appropriate",
+        "Preserve required application connectivity"
+      ]
+    }
+  ],
+
+  "expected_security_analysis": {
+    "cloud_provider": "AWS",
+    "resource_types": [
+      "aws_security_group",
+      "aws_iam_policy"
+    ],
+    "expected_conclusions": [
+      "SSH ingress is configured to allow traffic from all IPv4 addresses",
+      "The IAM policy grants overly broad permissions",
+      "Outbound network access is unrestricted",
+      "The configuration contains security risks",
+      "Public reachability and successful exploitation are not confirmed"
+    ]
+  },
+
+  "patch_requirements": [
+    "Restrict SSH ingress to authorized sources",
+    "Replace wildcard IAM permissions with least-privilege permissions",
+    "Review outbound traffic restrictions",
+    "Preserve required infrastructure functionality",
+    "Generate syntactically valid Terraform configuration"
+  ],
+
+  "forbidden_conclusions": [
+    "Claiming that unrestricted SSH ingress alone proves a server is publicly reachable",
+    "Claiming that the infrastructure was successfully compromised",
+    "Claiming that Terraform changes were applied without execution",
+    "Claiming that the configuration was validated without running validation tools",
+    "Removing required infrastructure functionality without justification"
+  ]
+}
