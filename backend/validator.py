@@ -39,7 +39,13 @@ def validate_dockerfile(dockerfile_text: str):
             stages.append(current_stage)
 
         elif name == "USER" and current_stage is not None:
-            current_stage["user"] = value.split()[0]
+            # The name ends at whitespace or at a literal "\n" (two characters),
+            # so text glued on by an escaped line break is not read as the name.
+            current_stage["user"] = re.split(r"\s|\\n", value, maxsplit=1)[0]
+            if "\\n" in value:
+                issues.append(
+                    "Malformed USER instruction: literal \\n instead of a line break"
+                )
 
     if not stages:
         issues.append("Missing FROM instruction")

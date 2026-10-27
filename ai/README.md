@@ -65,14 +65,17 @@ AI_MODE=mock
 
 Set `AI_MODE=live` to use the real Nebius model. Keep `.env` out of version control. Never paste API keys into source code, logs, or documentation.
 
-To check the configured Nebius connection:
+- `NEBIUS_MAX_OUTPUT_TOKENS` defaults to 16384. At 4096 the Nemotron reply was cut off and rejected; two completed live runs on the `test/live-monitor-ai` branch used 5,534 and 5,348 completion tokens.
+- If a key appears twice in `.env`, the last value is used. Real environment variables override `.env`.
+
+To check the configured Nebius connection (`--chat` sends one small request and uses a few tokens):
 
 ```powershell
 py -m ai.check_connection
 py -m ai.check_connection --chat
 ```
 
-To run a mock or live demo:
+To run a mock or live demo (`--mode live` calls Nebius and uses credits):
 
 ```powershell
 py -m ai.demo --mode mock
@@ -98,19 +101,21 @@ The returned object includes:
 - `patch`: `patched_dockerfile`, locally computed `diff`, and `summary`.
 - `tests`: initially `not_run`; populated by the **backend**, not the AI.
 - `response`: simulated response actions populated by the **backend**, not the AI.
-- `ai`: source (`nebius` or `mock`), model, warnings, limitations, patch review, schema validation (`ai.schema_validation`, only when `status` is `completed`), and error metadata.
+- `ai`: source (`nebius` or `mock`), model, warnings, limitations, patch review, schema validation (`ai.schema_validation`, only when `status` is `completed`), and error metadata. `source` reflects the configured mode and is `nebius` even when the live call failed; a genuine model answer is `status: "completed"` with `source: "nebius"` and an `ai.usage` token count.
+
+The static patch review normalizes escaped line breaks (a literal `\n` before an instruction or a `#` comment, when the patch has no real line breaks) and requires the final stage's last `USER` to be a non-root user; `useradd` alone is not enough.
 
 The agreed `findings`, `correlations`, and `patch` fields match the current backend integration contract. Model output is never executed as code.
 
 ## Verified testing
 
-- Sara reported **133 AI tests passed and 1 skipped** after the AI fixes.
-- The shared integration branch subsequently passed **158 tests and 1 skipped**, with **0 failures**, using:
+- Current offline result on this branch: **335 passed, 1 skipped, 0 failures**. The test run is offline by default: the repository-root `conftest.py` forces `AI_MODE=mock` and blocks real Nebius network access, so it uses no credits even if `.env` says `live`. The skipped test is the opt-in live test (`RUN_LIVE_TESTS=1`):
 
   ```powershell
-  py -m pytest backend ai/tests -q
+  .\.venv\Scripts\python.exe -m pytest backend ai/tests -q
   ```
 
+- Earlier results recorded for the shared integration branch: 133 AI tests, then 158 combined tests, each with 1 skipped.
 - A **real Nebius** request through the backend's `/api/analyze` endpoint returned HTTP **200**, `status: "completed"`, and `ai.source: "nebius"`.
 - The observed live response included **3 findings** and **2 correlations**. The backend produced **2 simulated actions**.
 - A subsequent real-model patch passed the backend's static review; this does **not** mean the patched image was built or executed.
@@ -129,7 +134,7 @@ The sample Dockerfile and attack logs used in these tests were **synthetic**. Th
 
 ## Remaining work
 
-- Verify that the final Prompt & Reasoning files are reflected in the prompts actually sent to Nebius.
+- The Prompt & Reasoning files are now loaded into the prompt sent to Nebius (tested offline). They have not yet been retested against the live model on this branch.
 - Retest with the team's latest Security scenario and finalized prompts.
 - Support final frontend/backend/Nebius end-to-end integration and investigate any regressions.
 - Merge only after team approval.

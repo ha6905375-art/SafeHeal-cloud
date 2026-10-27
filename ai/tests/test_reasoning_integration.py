@@ -51,11 +51,23 @@ def test_system_prompt_keeps_integration_safety_rules():
     assert '"related_finding_ids"' in SYSTEM_PROMPT  # output shape
 
 
+def test_system_prompt_asks_for_debug_settings_and_absence_evidence():
+    """Regression: a live run missed the debug and root-user findings."""
+    assert "DEBUG_MODE=true" in SYSTEM_PROMPT
+    assert "missing instruction (for example no USER instruction)" in SYSTEM_PROMPT
+    assert "or the missing instruction" in SYSTEM_PROMPT  # evidence field in the output shape
+
+
 def test_live_request_sends_reasoning_prompt_and_untrusted_input(fake_net):
     _, calls = run_live(fake_net, chat_body(json.dumps(GOOD_MODEL_JSON)))
     system, user = (m["content"] for m in calls[0]["body"]["messages"])
     assert system == SYSTEM_PROMPT
     assert "You are an autonomous defensive cybersecurity AI agent." in system
+    # Regression: the instructions behind the missed debug and root-user findings
+    # must be in the system prompt actually sent to the model.
+    assert "DEBUG_MODE=true" in system
+    assert "missing instruction (for example no USER instruction)" in system
+    assert "or the missing instruction" in system
     assert "<untrusted_dockerfile>" in user and "EXPLOITATION_ATTEMPT" in user
 
 

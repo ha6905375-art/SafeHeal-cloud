@@ -18,6 +18,24 @@ OVERCLAIM_RE = re.compile(r"^\s*#.*\b(fixed|verified|validated|tested|secured)\b
 CREATE_USER_RE = re.compile(r"\b(useradd|adduser)\b", re.IGNORECASE)
 INSTRUCTION_RE = re.compile(r"^\s*([A-Za-z]+)\s+(.+)$")
 
+DOCKERFILE_INSTRUCTIONS = (
+    "FROM", "RUN", "CMD", "LABEL", "MAINTAINER", "EXPOSE", "ENV", "ADD", "COPY", "ENTRYPOINT",
+    "VOLUME", "USER", "WORKDIR", "ARG", "ONBUILD", "STOPSIGNAL", "HEALTHCHECK", "SHELL",
+)
+# A literal backslash-n (text, not a line break) directly before an instruction or
+# a comment line ("#"): the model escaped the line breaks, so several Dockerfile
+# lines were joined into one.
+ESCAPED_INSTRUCTION_BREAK_RE = re.compile(
+    r"(?:\\r)?\\n(?=\s*(?:#|(?:" + "|".join(DOCKERFILE_INSTRUCTIONS) + r")\b))", re.IGNORECASE
+)
+# The USER name ends at whitespace or at a literal backslash-n, so text that a
+# malformed patch glued on (e.g. "appuser\n# comment") is not read as the name.
+_USER_TOKEN_END_RE = re.compile(r"\s|\\n")
+
+
+def _user_token(value: str) -> str:
+    return _USER_TOKEN_END_RE.split(value.strip(), maxsplit=1)[0]
+
 NOTE = "Static text checks only. No image was built and no container was run."
 
 
@@ -56,7 +74,7 @@ def _hardcoded_secrets(instructions: list[tuple[str, str]]) -> list[str]:
 
 
 def _undefined_user(stage: list[tuple[str, str]]) -> str:
-    users = [value.split()[0] for name, value in stage if name == "USER"]
+    users = [_user_token(value) for name, value in stage if name == "USER" and _user_token(value)]
     if not users:
         return ""
     user = users[-1].split(":")[0]
@@ -70,11 +88,39 @@ def _undefined_user(stage: list[tuple[str, str]]) -> str:
     return "" if created else user
 
 
+def _final_user_issue(stage: list[tuple[str, str]]) -> dict[str, str] | None:
+    """
+    The container runs as the last USER of the final stage (root if there is none).
+    Creating a user with useradd/adduser does not switch to it; only USER does.
+    """
+    users = [_user_token(value) for name, value in stage if name == "USER" and _user_token(value)]
+    if not users:
+        return {"code": "missing_user",
+                "message": "No USER instruction in the final stage, so the container still runs as root "
+                           "(creating a user with useradd/adduser does not switch to it)."}
+    user = users[-1].split(":")[0]
+    if user.lower() in ("root", "0"):
+        return {"code": "root_user",
+                "message": f"The final USER is '{users[-1]}', which is root."}
+    if user.startswith("$"):
+        return {"code": "unverified_user",
+                "message": f"The final USER is a variable ('{users[-1]}'); a static check cannot "
+                           f"confirm that it is not root."}
+    return None
+
+
 def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) -> dict[str, Any]:
     """Return {"type": "static", "passed": bool, "issues": [{code, message}], "note": str}."""
     issues: list[dict[str, str]] = []
     if not patched.strip():
         return {"type": "static", "passed": True, "issues": [], "note": NOTE}
+
+    # Escaped line breaks hide every instruction after the first, so no other
+    # check below can be trusted for this text.
+    if any(ESCAPED_INSTRUCTION_BREAK_RE.search(line) for line in patched.splitlines()):
+        issues.append({"code": "malformed_line_breaks",
+                       "message": "Patch contains literal '\\n' sequences instead of line breaks, "
+                                  "so it is not a valid multi-line Dockerfile."})
 
     instructions = _instructions(patched)
     stage = _final_stage(instructions)
@@ -89,6 +135,10 @@ def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) ->
                        "message": f"USER '{user}' is never created in the final stage "
                                   f"(no useradd/adduser). Official python images do not define it, "
                                   f"so the container would fail to start."})
+
+    user_issue = _final_user_issue(stage)
+    if user_issue:
+        issues.append(user_issue)
 
     patched_lines = {line.strip() for line in patched.splitlines() if line.strip()}
     original_lines = {line.strip() for line in original.splitlines() if line.strip()}

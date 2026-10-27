@@ -59,6 +59,11 @@ def main() -> int:
     logs = None if args.no_logs else json.loads(read_input(args.logs, args.git_ref))
 
     result = analyze_evidence(dockerfile_text, logs, settings=settings)
+    # The JSON keeps non-ASCII text from the model (e.g. U+2011). On Windows, output
+    # redirected to a file defaults to cp1252, which cannot encode it and crashed the
+    # demo after a completed live analysis. A console already uses UTF-8.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     print(to_json(result))
     print(f"\n# source={result['ai']['source']} model={result['ai']['model']} status={result['status']}",
           file=sys.stderr)

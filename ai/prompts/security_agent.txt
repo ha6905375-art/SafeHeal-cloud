@@ -111,6 +111,8 @@ ANALYSIS QUALITY REQUIREMENTS:
 - Explain why the configuration creates a security risk.
 - Assign severity based on evidence and potential impact.
 - Do not report unsupported vulnerabilities.
+- Check for debug or development settings enabled in production
+  (for example DEBUG=true or DEBUG_MODE=true).
 
 2. ATTACK CORRELATION
 - Analyze security events using source IP, timestamp,

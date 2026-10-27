@@ -39,7 +39,7 @@ curl.exe -sS -X POST "http://127.0.0.1:8000/api/analyze" `
   -F "attack_logs=@security/attack_logs.json;type=application/json"
 ```
 
-The response includes `status`, `findings`, `correlations`, `patch`, `tests`, `response`, and `ai` metadata. The `ai.source` field distinguishes real Nebius calls (`nebius`) from offline mock runs (`mock`). The `patch.diff` field is computed locally rather than trusted from the model.
+The response includes `status`, `findings`, `correlations`, `patch`, `tests`, `response`, and `ai` metadata. The `ai.source` field shows the configured mode (`nebius` or `mock`); it is `nebius` even when the live call failed, so a genuine model answer is `status: "completed"` with `ai.source: "nebius"`. The `patch.diff` field is computed locally rather than trusted from the model.
 
 ## Validation and safety boundaries
 

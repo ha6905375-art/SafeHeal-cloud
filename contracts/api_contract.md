@@ -16,7 +16,7 @@ Response: JSON matching `contracts/example_response.json`. `findings` and `corre
 - `proposed_patch` (only when the AI proposed a patch): `{"status": "static_review_only", "passed": ..., "details": [...]}`. A static text review only; the patch is never built, run, or applied.
 
 ### `ai` object (additive AI metadata)
-- Always present: `source` (`"nebius"` real model, `"mock"`, or `"unknown"` after an unexpected failure), `model` (or `null`), `summary`, `limitations`, `next_steps`, `warnings`, `finding_evidence` (`{finding_id: quoted Dockerfile text}`), `patch_status` (`"none"`, `"proposed_not_validated"`, or `"proposed_failed_static_review"`), `error` (`null` on success).
+- Always present: `source` (the configured mode: `"nebius"` or `"mock"`, or `"unknown"` after an unexpected failure; it is `"nebius"` even when the live call failed, so a genuine model answer is `status: "completed"` with `source: "nebius"`), `model` (or `null`), `summary`, `limitations`, `next_steps`, `warnings`, `finding_evidence` (`{finding_id: quoted Dockerfile text}`), `patch_status` (`"none"`, `"proposed_not_validated"`, or `"proposed_failed_static_review"`), `error` (`null` on success).
 - Optional, only when `status` is `"completed"`: `patch_review` (static text check result) and `schema_validation` (`{"schema": "ai/output_schema.json", "valid": bool, "errors": [...]}`: whether the raw model reply matched the AI Reasoning schema before normalization). `usage` (`prompt_tokens`, `completion_tokens`, `total_tokens`) may appear only on successful live model calls.
 - `patch_status: "proposed_not_validated"` means static checks passed but nothing was built or run; it is never a claim that the fix works.
 

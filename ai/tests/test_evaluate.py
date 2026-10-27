@@ -117,6 +117,15 @@ def test_contradictory_root_finding_is_not_counted():
     finding("Missing USER instruction", "Without a USER line the process defaults to root."),
     finding("Least privilege", evidence="No USER instruction is present"),
     finding("No non-root user", "Create a dedicated non-root user."),
+    # Phrasings a live model may use (regression: missed in a live evaluation).
+    finding("No USER directive specified", "The image never switches users."),
+    finding("Running as privileged root user"),
+    finding("Lack of least privilege", "The Dockerfile does not set a USER, so the container runs as UID 0."),
+    finding("Root execution", "The application never runs as a non-root user."),
+    finding("Least privilege", evidence="USER instruction is not specified"),
+    # Negative phrasing must not be mistaken for "already non-root".
+    finding("Least privilege", "It never  runs as a non-root user."),  # two spaces
+    finding("Least privilege", "It no longer runs as a non-root user."),
 ])
 def test_root_user_finding_variants_are_detected(item):
     assert "SEC-001" in detected_ids([item])
@@ -127,9 +136,50 @@ def test_root_user_finding_variants_are_detected(item):
             ["openssh-server installed"]),
     finding("Container already runs as a non-root user", evidence="USER appuser"),
     finding("Least privilege OK", "The container does not run as root."),
+    finding("Least privilege OK", "The application runs as a non-root user."),
 ])
 def test_unrelated_root_mentions_are_not_counted_as_root_user(item):
     assert "SEC-001" not in detected_ids([item])
+
+
+# ---------------- attack-to-vulnerability correlation ----------------
+
+def correlation_result(title, description, event_type="EXPLOITATION_ATTEMPT", evidence=""):
+    return {
+        "findings": [{"id": "F-1", "title": title, "description": description, "evidence": evidence}],
+        "correlations": [{"event_type": event_type, "source_ip": "198.51.100.45",
+                          "related_finding_ids": ["F-1"], "explanation": "x"}],
+    }
+
+
+@pytest.mark.parametrize("title, description, evidence", [
+    ("Debug Mode Enabled", "Debug settings may expose sensitive information.", ""),
+    ("Hardcoded Credential", "A credential-like value is hardcoded.", ""),
+    # Regression: the env-dump attempt targets AWS_SECRET_KEY, so a secret finding is a valid link.
+    ("Hardcoded AWS Secret Key", "AWS_SECRET_KEY is set in an ENV instruction.", ""),
+    ("Sensitive environment variable", "Value exposed via an environment dump.",
+     'ENV AWS_SECRET_KEY="[REDACTED]"'),
+])
+def test_exploitation_attempt_linked_to_debug_or_secret_finding(capsys, title, description, evidence):
+    ev.evaluate_vulnerability_correlation(correlation_result(title, description, evidence=evidence))
+    assert "[PASS] Debug attack linked to sensitive configuration" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("title, description, event_type", [
+    # Linked to unrelated findings that merely mention secrets or credentials.
+    ("Unnecessary SSH Service", "openssh-server increases attack surface.", "EXPLOITATION_ATTEMPT"),
+    ("Unnecessary SSH Service", "openssh-server could let attackers read secrets on the host.",
+     "EXPLOITATION_ATTEMPT"),
+    ("Unnecessary SSH Service", "SSH exposes the container to credential brute force.", "EXPLOITATION_ATTEMPT"),
+    ("Container Running as Root", "No secrets are stored, but the process runs as root.", "EXPLOITATION_ATTEMPT"),
+    ("Outdated base image", "python:3.9 may contain vulnerabilities; no secret involved.",
+     "EXPLOITATION_ATTEMPT"),
+    # A secret finding linked to a different event does not count.
+    ("Hardcoded AWS Secret Key", "AWS_SECRET_KEY is set in an ENV instruction.", "PORT_SCAN"),
+])
+def test_exploitation_correlation_not_counted_for_unrelated_links(capsys, title, description, event_type):
+    ev.evaluate_vulnerability_correlation(correlation_result(title, description, event_type))
+    assert "[MISSING] Debug attack linked to sensitive configuration" in capsys.readouterr().out
 
 
 # ---------------- other categories ----------------

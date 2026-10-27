@@ -21,12 +21,16 @@ VULNERABLE_DOCKERFILE = TEST_DIR / "vulnerable.Dockerfile"
 # match SSH credential guessing.
 FINDING_PATTERNS = {
     "SEC-001": (
-        r"\b(run|runs|running|executes?|executing)\s+(as|with)\s+(the\s+)?(default\s+)?root\b"
+        r"\b(run|runs|running|executes?|executing)\s+(as|with)\s+(the\s+|a\s+)?"
+        r"(default\s+|privileged\s+)?root\b"
         r"|\bnon-root\b"
-        r"|\bno\s+USER\s+instruction\b"
-        r"|\bUSER\s+instruction\s+is\s+(missing|absent)\b"
+        r"|\bno\s+USER\s+(instruction|directive)\b"
+        r"|\bUSER\s+(instruction|directive)\s+(is\s+)?"
+        r"(missing|absent|not\s+(set|specified|defined))\b"
         r"|\bmissing\s+USER\b"
+        r"|\b(does|do)\s+not\s+(set|specify|define)\s+(a\s+)?USER\b"
         r"|\bdefaults?\s+to\s+(the\s+)?root\b"
+        r"|\bUID\s+0\b"
     ),
     "SEC-002": r"\bssh\b|openssh|\bport\s+22\b|\bEXPOSE\s+22\b",
     "SEC-003": (
@@ -50,7 +54,10 @@ ROOT_NEGATION_PATTERN = (
     r"\b(is|are|does|do)\s+not\s+(run|running)\s+as\s+root\b"
     r"|\bwithout\s+root\s+privileges\b"
     r"|\b(is|are)\s+(already\s+)?running\s+as\s+(a\s+)?non-root\b"
-    r"|\b(already\s+)?runs\s+as\s+(a\s+)?non-root\b"
+    # Subject directly before "runs", so "never runs" / "no longer runs as a
+    # non-root user" (which report the weakness) are not excluded.
+    r"|\b(it|container|application|app|process|image|service)\s+(already\s+)?"
+    r"runs\s+as\s+(a\s+)?non-root\b"
 )
 
 # Users that exist in the official python base images without being created.
@@ -487,9 +494,14 @@ def evaluate_vulnerability_correlation(actual):
                     if "ssh" in finding_text or "openssh" in finding_text:
                         ssh_correlation = True
 
-                if event_type == "EXPLOITATION_ATTEMPT":
-                    if "debug" in finding_text or "credential" in finding_text:
-                        debug_correlation = True
+                # The logged attempt targets the debug endpoint to extract
+                # AWS_SECRET_KEY, so only a linked finding that is itself a
+                # hardcoded-secret (SEC-003) or debug (SEC-005) finding counts.
+                if event_type == "EXPLOITATION_ATTEMPT" and (
+                    detect_finding(finding, FINDING_PATTERNS["SEC-003"])
+                    or detect_finding(finding, FINDING_PATTERNS["SEC-005"])
+                ):
+                    debug_correlation = True
     checks = {
         "SSH attack linked to SSH configuration": ssh_correlation,
         "Debug attack linked to sensitive configuration": debug_correlation
