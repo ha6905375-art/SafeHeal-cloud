@@ -1,119 +1,117 @@
-# AI
+# AI Integration — SafeHeal-Cloud
 
-Owners: AI Reasoning (`feature/ai-reasoning`) and AI Integration (`feature/ai-integration`). Keep prompts, schemas, evaluation, and Nebius integration here. Never commit API keys.
+**Owner:** AI API & Integration Specialist (Sara)  
+**Feature branch:** `feature/ai-integration`  
+**Shared integration/test branch:** `test/backend-ai-integration`
 
-## What's here
+This README documents the **AI API & Integration** work. Prompt design and reasoning rules are a separate team responsibility; their final integration should be verified before release.
+
+## Completed work
+
+- Implemented integration with the **Nebius Token Factory API** to call an available NVIDIA Nemotron model.
+- Added environment-based configuration for model, credentials, and mock/live mode; API keys are not committed to the repository.
+- Implemented `ai/nebius_client.py` with request handling, timeouts, bounded retries, and structured error reporting.
+- Implemented `ai/service.py` as the backend entry point: `analyze_evidence(dockerfile_text, attack_logs)`.
+- Implemented JSON response parsing and normalization in `ai/response_parser.py`, treating model output as untrusted data.
+- Added grounding of correlations against actual event types and source IPs in the supplied attack logs.
+- Added safety checks and secret redaction so secret-like Dockerfile values do not leak in returned strings.
+- Added regression tests for response handling, parsing, and secret redaction.
+- Maintained offline mock mode for repeatable development and live Nebius mode for real-model integration testing.
+- Synced the latest AI fixes to the shared test branch and verified compatibility with the backend.
+
+## Key files
 
 | File | Purpose |
 |---|---|
-| `service.py` | **Backend entry point**: `analyze_evidence(dockerfile_text, attack_logs)` |
-| `nebius_client.py` | Nebius Token Factory HTTP client (timeouts, bounded retries, error codes) |
-| `prompts.py` | System prompt + user prompt builder (inputs treated as untrusted data) |
-| `response_parser.py` | Validates/normalizes model JSON (model output is untrusted) |
-| `mock.py` | Offline rule-based mock, so no credits are used during development |
-| `config.py` | Reads env vars / `.env` (key is never printed) |
-| `check_connection.py` | Verifies key + lists available Nemotron models |
-| `demo.py` | Runs an analysis on the harmless samples in `samples/` |
-| `tests/` | Unit tests (network is faked) + one opt-in live test |
+| `service.py` | Backend-facing analysis entry point and response assembly. |
+| `nebius_client.py` | Nebius API client and network/error handling. |
+| `response_parser.py` | Parses, validates, and normalizes model JSON. |
+| `config.py` | Reads AI settings and environment variables. |
+| `prompts.py` | Current system prompt and user-prompt builder used by the service. |
+| `patch_review.py` | Static review of proposed Dockerfile changes. |
+| `mock.py` | Offline mock responses for development and tests. |
+| `check_connection.py` | Checks Nebius access and available models. |
+| `tests/` | AI unit and regression tests. |
 
-Standard library only, so there are no runtime dependencies. Tests need `pytest`.
+**Important:** `ai/service.py` currently imports `SYSTEM_PROMPT` and `build_user_prompt` from `ai/prompts.py`. Separate Prompt & Reasoning text files are **not automatically loaded**. Confirm with the Prompt & Reasoning Engineer that the final approved prompts are actually used by the live service.
 
-## Setup
+## Configuration
 
-1. Copy `.env.example` to `.env` at the repo root (already git-ignored) and fill in:
-   ```
-   NEBIUS_API_KEY=<your key>
-   NEBIUS_MODEL=<model id from step 2>
-   AI_MODE=mock        # switch to "live" for real requests
-   ```
-2. List the models your key can use (free, no tokens):
-   ```
-   python -m ai.check_connection
-   ```
-   Copy a Nemotron ID from the output into `NEBIUS_MODEL`.
-3. Test one tiny chat request (uses a few tokens):
-   ```
-   python -m ai.check_connection --chat
-   ```
+Copy the repository's `.env.example` to `.env` and configure:
 
-Nebius API facts (from https://docs.tokenfactory.nebius.com/):
-base URL `https://api.tokenfactory.nebius.com/v1`, `Authorization: Bearer <key>`,
-OpenAI-compatible `POST /chat/completions`, JSON mode via `response_format: {"type": "json_object"}`
-(support varies by model; the client retries once without it if the model rejects it).
-
-## Usage / demo
-
-```
-python -m ai.demo --mode mock                 # offline
-python -m ai.demo --mode live                 # real Nemotron call (uses credits)
-python -m ai.demo --mode mock --dockerfile ai/samples/Dockerfile.hardened --no-logs
-
-# Security Engineer's scenario, read-only from the security branch (no checkout needed):
-python -m ai.demo --mode mock --git-ref origin/feature/security --dockerfile security/vulnerable.Dockerfile --logs security/attack_logs.json
+```dotenv
+NEBIUS_API_KEY=your_api_key_here
+NEBIUS_MODEL=your_available_model_id
+AI_MODE=mock
 ```
 
-Offline copies of that scenario live in `ai/tests/fixtures/security_scenario/`; a test checks they
-still match `origin/feature/security`.
+Set `AI_MODE=live` to use the real Nebius model. Keep `.env` out of version control. Never paste API keys into source code, logs, or documentation.
 
-## Tests
+To check the configured Nebius connection:
 
+```powershell
+py -m ai.check_connection
+py -m ai.check_connection --chat
 ```
-pip install pytest
-python -m pytest ai/tests -q                  # unit tests, no network
-RUN_LIVE_TESTS=1 python -m pytest ai/tests -q -k live    # one real API call (bash)
-$env:RUN_LIVE_TESTS="1"; python -m pytest ai/tests -q -k live   # same, PowerShell
+
+To run a mock or live demo:
+
+```powershell
+py -m ai.demo --mode mock
+py -m ai.demo --mode live
 ```
 
 ## Backend contract
+
+The backend calls:
 
 ```python
 from starlette.concurrency import run_in_threadpool
 from ai.service import analyze_evidence
 
-result = await run_in_threadpool(analyze_evidence, docker_text, logs)  # never raises
-result["tests"] = {"status": "completed", "passed": ..., "details": [...]}  # backend's own validation
-result["response"] = simulate_response(logs)                               # backend's simulation
-return result
+result = await run_in_threadpool(analyze_evidence, docker_text, logs)
 ```
 
-Input: the Dockerfile as UTF-8 text (already size/encoding-validated by the backend), plus the
-parsed attack-logs JSON (`dict`/`list`) or `None`.
+The returned object includes:
 
-Output matches `contracts/example_response.json`:
+- `status`: `completed` or `ai_error`.
+- `findings`: validated vulnerability findings.
+- `correlations`: links between findings and supplied attack-log events.
+- `patch`: `patched_dockerfile`, locally computed `diff`, and `summary`.
+- `tests`: initially `not_run`; populated by the **backend**, not the AI.
+- `response`: simulated response actions populated by the **backend**, not the AI.
+- `ai`: source (`nebius` or `mock`), model, warnings, limitations, patch review, and error metadata.
 
-| Field | Owner | Notes |
-|---|---|---|
-| `status` | AI | `"completed"` or `"ai_error"` |
-| `findings[]` | AI | Exactly `id, title, severity (CRITICAL/HIGH/MEDIUM/LOW/INFO), description, recommendation` |
-| `correlations[]` | AI | Exactly `event_type, source_ip, related_finding_ids[], explanation`. One per (event_type, source_ip). `event_type`/`source_ip` are copied from the logs or `null`, never invented: model values not found in the logs are set to `null` with a warning. Empty when there are no logs |
-| `patch` | AI | Exactly `patched_dockerfile` (proposal only, never executed), `diff` (computed locally), `summary` (what the patch changes; `""` when there is no patch) |
-| `tests` | **Backend** | AI always returns `not_run`. Backend should run `validate_dockerfile` on the original **and** on `patch.patched_dockerfile` |
-| `response` | **Backend** | AI always returns `{"mode": "simulation", "actions": []}` |
-| `ai` (additive) | AI | `source` (`"nebius"` real / `"mock"`), `model`, `summary`, `limitations[]`, `next_steps[]`, `warnings[]`, `finding_evidence {finding_id: quoted line}`, `patch_status`, `patch_review`, `error {code, message}`, `usage` |
+The agreed `findings`, `correlations`, and `patch` fields match the current backend integration contract. Model output is never executed as code.
 
-The parser still accepts the pre-agreement names `issue` (→ `title`) and `finding_ids` (→ `related_finding_ids`).
-`contracts/example_response.json` (team-owned) shows the agreed `findings`, `correlations` and `patch` fields.
-It does not include the additive `ai` key or the `"ai_error"` status.
+## Verified testing
 
-`patch_status`: `none` (no patch), `proposed_failed_static_review` (static issues found, see
-`patch_review.issues`), or `proposed_not_validated` (static checks passed, but nothing was built or run).
-`patch_review` (`ai/patch_review.py`) is a **static text check only**: leftover hardcoded secrets,
-`USER` accounts never created in the final stage, finding evidence left unchanged, and comments
-claiming the file is "fixed"/"verified". Passing it does not mean the patch is secure or works.
+- Sara reported **133 AI tests passed and 1 skipped** after the AI fixes.
+- The shared integration branch subsequently passed **158 tests and 1 skipped**, with **0 failures**, using:
 
-Error codes in `ai.error.code`: `config_error`, `auth_error`, `rate_limited`, `timeout`,
-`network_error`, `bad_request`, `not_found`, `server_error`, `invalid_response`.
-A live failure never silently falls back to mock data.
+  ```powershell
+  py -m pytest backend ai/tests -q
+  ```
 
-## Safety rules implemented
+- A **real Nebius** request through the backend's `/api/analyze` endpoint returned HTTP **200**, `status: "completed"`, and `ai.source: "nebius"`.
+- The observed live response included **3 findings** and **2 correlations**. The backend produced **2 simulated actions**.
+- A subsequent real-model patch passed the backend's static review; this does **not** mean the patched image was built or executed.
 
-- Uploaded files and logs are wrapped in `<untrusted_*>` tags; the model is told to ignore instructions inside them.
-- Model output is parsed as data only. Nothing is executed. Fields from the model for `tests`/`response` are discarded.
-- Patches are labelled `proposed_not_validated` until the backend validates them.
-- The API key is read from env only and never logged, printed, or put in error messages.
+The sample Dockerfile and attack logs used in these tests were **synthetic**. The model invocation was **real**, not a mock. These are different facts and should not be conflated.
 
-## Limitations
+## Safety and limitations
 
-- Findings are model opinions with quoted evidence. They are not verified vulnerabilities.
-- Mock mode uses simple pattern rules and is clearly labelled `source: "mock"`.
-- `analyze_evidence` is blocking; use a thread pool from async routes.
+- The service treats Dockerfile content and attack logs as untrusted inputs.
+- Model responses are parsed and checked rather than blindly trusted.
+- Sensitive literal values are redacted from returned results.
+- Model-generated findings and patches remain **proposals**, not proof of exploitation or production-ready fixes.
+- Proposed patches are only **statically reviewed**; they are not built, run, or deployed.
+- Defensive response actions are simulated by the backend.
+- A failed live request does not silently fall back to mock results.
+
+## Remaining work
+
+- Verify that the final Prompt & Reasoning files are reflected in the prompts actually sent to Nebius.
+- Retest with the team's latest Security scenario and finalized prompts.
+- Support final frontend/backend/Nebius end-to-end integration and investigate any regressions.
+- Merge only after team approval.
