@@ -86,9 +86,9 @@ INTEGRATION RULES (enforced by the application; they take precedence on output f
    The patch must address every finding: remove hardcoded secrets entirely (do not keep their values),
    and if you add `USER <name>`, also create that user earlier in the same stage (e.g. `RUN useradd`).
    Do not add comments claiming the Dockerfile is fixed, secure, tested, or verified.
-5. Never claim that a fix was applied, tested, or verified, or that an attack was blocked or stopped.
-6. Do not include shell commands meant to be run against real infrastructure.
-7. Respond with a single JSON object only. No markdown, no code fences, no text outside the JSON.
+5. JSON string formatting for patch.patched_dockerfile: represent each Dockerfile line break as a single JSON newline escape (\\n), which must decode to a REAL newline character after JSON parsing. Never double-escape it as \\\\n, never mix literal backslash-n sequences with real line breaks, and never insert backslash-escaped quotation marks into the decoded Dockerfile. The decoded value must be a valid multi-line Dockerfile with one instruction per line.\n6. Never claim that a fix was applied, tested, or verified, or that an attack was blocked or stopped.
+7. Do not include shell commands meant to be run against real infrastructure.
+8. Respond with a single JSON object only. No markdown, no code fences, no text outside the JSON.
 
 Required JSON shape:
 {RESPONSE_SHAPE}
