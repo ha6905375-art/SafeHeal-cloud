@@ -7,6 +7,8 @@ from starlette.concurrency import run_in_threadpool
 from backend.simulation import simulate_response
 from backend.validator import validate_dockerfile
 from backend.attack_monitor import router as attack_monitor_router
+from backend.live_monitor import live_monitor_middleware
+from backend.live_stream import router as live_stream_router
 from ai.service import analyze_evidence
 
 
@@ -17,6 +19,12 @@ app = FastAPI(
 
 # Register Attack Monitor routes
 app.include_router(attack_monitor_router)
+
+# Register Live Attack Monitoring routes
+app.include_router(live_stream_router)
+
+# Enable real-time HTTP request monitoring
+app.middleware("http")(live_monitor_middleware)
 
 MAX_FILE_SIZE = 1024 * 1024  # 1 MB
 
@@ -134,8 +142,8 @@ async def analyze(
             )
 
     # 5. Analyze evidence without blocking the async request loop.
-    # The AI service returns ai_error metadata instead of silently using mock.
-    # The except is a last-resort guard against unexpected failures.
+    # AI/network errors are represented as structured results.
+    # This except handles unexpected failures as a final safeguard.
     try:
         result = await run_in_threadpool(
             analyze_evidence,
@@ -166,7 +174,7 @@ async def analyze(
             "details": patch_review["details"],
         }
 
-        # A passing text review is not a Docker build/runtime validation.
+        # A passing text review is not Docker build/runtime validation.
         if (
             not patch_review["passed"]
             and result.get("ai", {}).get("patch_status")
