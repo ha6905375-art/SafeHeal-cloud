@@ -291,10 +291,9 @@ def normalize_patch_line_breaks(text: str) -> str:
     """
     if not isinstance(text, str):
         return text
-    # A model may emit a literal escaped newline immediately before a real
-    # newline. Removing only that redundant escape is unambiguous, even in a
-    # mixed-format patch. Do not rewrite escapes inside RUN commands.
-    fixed = re.sub(r"(?:\\\\r)?\\\\n(?=\\r?\\n)", "", text)
+    # Only remove redundant literal \n when it is immediately followed by
+    # an actual line break. Keep other escaped text unchanged.
+    fixed = re.sub(r"(?:\\r)?\\n(?=\r?\n)", "", text)
     if "\n" in fixed.strip():
         return fixed
     if not ESCAPED_INSTRUCTION_BREAK_RE.search(fixed):
