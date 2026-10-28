@@ -71,31 +71,112 @@ def _log_facts(attack_logs: Any) -> tuple[dict[str, str], set[str]]:
 
 
 def _ground_correlations(
-    correlations: list[dict], attack_logs: Any, finding_ids: set[str], warnings: list[str]
+    correlations: list[dict],
+    attack_logs: Any,
+    finding_ids: set[str],
+    warnings: list[str],
 ) -> list[dict]:
-    """Keep event_type/source_ip only if they appear in the logs (else null); drop unknown finding ids."""
+    """
+    Validate correlations against actual log events.
+
+    An event_type and source_ip pair is accepted only when
+    both values appear in the SAME log event.
+
+    Unknown values are replaced with None.
+    Unknown finding references are removed.
+    """
     types, ips = _log_facts(attack_logs)
+
+    if isinstance(attack_logs, dict):
+        events = attack_logs.get("events", [attack_logs])
+    else:
+        events = attack_logs
+
+    # FIX: Keep actual event_type/source_ip pairs.
+    valid_pairs: set[tuple[str, str]] = set()
+
+    for event in events if isinstance(events, list) else []:
+        if not isinstance(event, dict):
+            continue
+
+        event_type = event.get("event_type") or event.get("type")
+        source_ip = event.get("source_ip")
+
+        if (
+            isinstance(event_type, str)
+            and event_type.strip()
+            and isinstance(source_ip, str)
+            and source_ip.strip()
+        ):
+            valid_pairs.add(
+                (
+                    event_type.strip().lower(),
+                    source_ip.strip(),
+                )
+            )
+
     grounded = []
+
     for index, corr in enumerate(correlations):
         event_type = corr["event_type"]
+        source_ip = corr["source_ip"]
+
+        # Validate event type.
         if event_type is not None:
             matched = types.get(event_type.lower())
+
             if matched is None:
-                warnings.append(f"Correlation {index}: event_type '{event_type}' not found in logs; set to null.")
+                warnings.append(
+                    f"Correlation {index}: event_type "
+                    f"'{event_type}' not found in logs; "
+                    "set to null."
+                )
+
             event_type = matched
-        source_ip = corr["source_ip"]
+
+        # Validate source IP.
         if source_ip is not None and source_ip not in ips:
-            warnings.append(f"Correlation {index}: source_ip '{source_ip}' not found in logs; set to null.")
+            warnings.append(
+                f"Correlation {index}: source_ip "
+                f"'{source_ip}' not found in logs; "
+                "set to null."
+            )
             source_ip = None
-        related = [fid for fid in corr["related_finding_ids"] if fid in finding_ids]
+
+        # FIX: Verify both belong to the same log event.
+        if event_type is not None and source_ip is not None:
+            pair = (event_type.lower(), source_ip)
+
+            if pair not in valid_pairs:
+                warnings.append(
+                    f"Correlation {index}: event_type and "
+                    "source_ip do not occur in the same "
+                    "log event; source_ip set to null."
+                )
+                source_ip = None
+
+        # Preserve existing finding-ID validation.
+        related = [
+            fid
+            for fid in corr["related_finding_ids"]
+            if fid in finding_ids
+        ]
+
         if len(related) != len(corr["related_finding_ids"]):
-            warnings.append(f"Correlation {index}: dropped reference(s) to unknown finding ids.")
-        grounded.append({
-            "event_type": event_type,
-            "source_ip": source_ip,
-            "related_finding_ids": related,
-            "explanation": corr["explanation"],
-        })
+            warnings.append(
+                f"Correlation {index}: dropped reference(s) "
+                "to unknown finding ids."
+            )
+
+        grounded.append(
+            {
+                "event_type": event_type,
+                "source_ip": source_ip,
+                "related_finding_ids": related,
+                "explanation": corr["explanation"],
+            }
+        )
+
     return grounded
 
 
