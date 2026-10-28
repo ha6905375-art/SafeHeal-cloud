@@ -5,6 +5,10 @@ import os
 import secrets
 
 from fastapi import HTTPException, Request
+from ai.config import load_dotenv
+
+# Load environment configuration once when the backend starts.
+load_dotenv()
 
 
 def require_live_access(request: Request):
