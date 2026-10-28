@@ -1,28 +1,46 @@
+
 import json
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from starlette.concurrency import run_in_threadpool
+
 from backend.simulation import simulate_response
 from backend.validator import validate_dockerfile
+from backend.attack_monitor import router as attack_monitor_router
 from ai.service import analyze_evidence
+
 
 app = FastAPI(
     title="Autonomous Cyber Defense Agent",
     version="0.1.0"
 )
 
+# Register Attack Monitor routes
+app.include_router(attack_monitor_router)
+
 MAX_FILE_SIZE = 1024 * 1024  # 1 MB
 
 
 def _unexpected_ai_failure():
-    """Same shape as ai.service's own "ai_error" result, with safe defaults."""
+    """Same shape as ai.service's own ai_error result, with safe defaults."""
     return {
         "status": "ai_error",
         "findings": [],
         "correlations": [],
-        "patch": {"patched_dockerfile": "", "diff": "", "summary": ""},
-        "tests": {"status": "not_run", "passed": None, "details": []},
-        "response": {"mode": "simulation", "actions": []},
+        "patch": {
+            "patched_dockerfile": "",
+            "diff": "",
+            "summary": ""
+        },
+        "tests": {
+            "status": "not_run",
+            "passed": None,
+            "details": []
+        },
+        "response": {
+            "mode": "simulation",
+            "actions": []
+        },
         "ai": {
             "source": "unknown",
             "model": None,
@@ -32,7 +50,10 @@ def _unexpected_ai_failure():
             "warnings": [],
             "finding_evidence": {},
             "patch_status": "none",
-            "error": {"code": "internal_error", "message": "AI analysis failed unexpectedly."},
+            "error": {
+                "code": "internal_error",
+                "message": "AI analysis failed unexpectedly."
+            },
         },
     }
 
@@ -114,15 +135,19 @@ async def analyze(
 
     # 5. Analyze evidence without blocking the async request loop.
     # The AI service returns ai_error metadata instead of silently using mock.
-    # It never raises for AI/network errors; the except is a last-resort guard
-    # so an unexpected bug still returns backend checks and no internal details.
+    # The except is a last-resort guard against unexpected failures.
     try:
-        result = await run_in_threadpool(analyze_evidence, docker_text, logs)
+        result = await run_in_threadpool(
+            analyze_evidence,
+            docker_text,
+            logs
+        )
     except Exception:
         result = _unexpected_ai_failure()
 
     # 6. Validate the uploaded Dockerfile independently of AI.
     original_review = validate_dockerfile(docker_text)
+
     result["tests"] = {
         "status": "completed",
         "passed": original_review["passed"],
@@ -131,20 +156,30 @@ async def analyze(
 
     # 7. A proposed patch is only statically reviewed, never executed.
     proposed = result.get("patch", {}).get("patched_dockerfile", "")
+
     if isinstance(proposed, str) and proposed.strip():
         patch_review = validate_dockerfile(proposed)
+
         result["tests"]["proposed_patch"] = {
             "status": "static_review_only",
             "passed": patch_review["passed"],
             "details": patch_review["details"],
         }
+
         # A passing text review is not a Docker build/runtime validation.
-        if not patch_review["passed"] and result.get("ai", {}).get("patch_status") == "proposed_not_validated":
-            result["ai"]["patch_status"] = "proposed_failed_static_review"
+        if (
+            not patch_review["passed"]
+            and result.get("ai", {}).get("patch_status")
+            == "proposed_not_validated"
+        ):
+            result["ai"]["patch_status"] = (
+                "proposed_failed_static_review"
+            )
             result["ai"].setdefault("warnings", []).append(
                 "Backend static review found issues in the proposed Dockerfile."
             )
 
     # 8. Only the backend owns simulated response actions.
     result["response"] = simulate_response(logs)
+
     return result
