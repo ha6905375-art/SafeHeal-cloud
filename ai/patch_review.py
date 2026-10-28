@@ -117,7 +117,7 @@ def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) ->
 
     # Escaped line breaks hide every instruction after the first, so no other
     # check below can be trusted for this text.
-    if any(ESCAPED_INSTRUCTION_BREAK_RE.search(line) for line in patched.splitlines()):
+    if any(ESCAPED_INSTRUCTION_BREAK_RE.search(line) for line in patched.splitlines()) or re.search(r"\\n(?=\s*$)", patched, re.MULTILINE):
         issues.append({"code": "malformed_line_breaks",
                        "message": "Patch contains literal '\\n' sequences instead of line breaks, "
                                   "so it is not a valid multi-line Dockerfile."})
