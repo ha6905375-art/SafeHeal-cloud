@@ -4,18 +4,23 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Request, Query, Depends
 from fastapi.responses import StreamingResponse
 
 from backend.live_events import get_events_after
+from backend.live_auth import require_live_access
 
 
-router = APIRouter(prefix="/api", tags=["Live Attack Monitoring"])
+router = APIRouter(
+    prefix="/api",
+    tags=["Live Attack Monitoring"],
+    dependencies=[Depends(require_live_access)],
+)
 
 
 @router.get("/live-events")
 def list_live_events(after_id: int = Query(default=0, ge=0)):
-    """Return live security events currently held in memory."""
+    """Return authorized live security events."""
     events = get_events_after(after_id)
 
     return {
@@ -27,7 +32,7 @@ def list_live_events(after_id: int = Query(default=0, ge=0)):
 
 @router.get("/live-events/stream")
 async def stream_live_events(request: Request):
-    """Stream new security events to connected clients."""
+    """Stream new security events to authorized clients."""
 
     last_event_id = request.headers.get("last-event-id", "0")
 
@@ -38,7 +43,6 @@ async def stream_live_events(request: Request):
 
     async def event_generator():
         nonlocal cursor
-
         heartbeat_count = 0
 
         while not await request.is_disconnected():
