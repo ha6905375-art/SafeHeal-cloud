@@ -1,8 +1,6 @@
 # Backend — SafeHeal-Cloud
 
-**Owner:** Backend Developer  
-**Branch:** `feature/backend`  
-**Integration/test branch:** `test/backend-ai-integration`
+This README describes the backend implementation by technical responsibility, not by individual contributor.
 
 ## Completed work
 
@@ -15,7 +13,7 @@ The backend is implemented with **FastAPI** and connects the security scenario, 
 - Added independent static checks for the uploaded Dockerfile and proposed patched Dockerfile via `backend/validator.py`.
 - Added simulated defensive response actions via `backend/simulation.py`. **No real firewall rules or IP blocks are applied.**
 - Kept patch checks separate from AI-generated claims: the backend performs its own review and reports `tests.proposed_patch`.
-- Integrated and tested the backend with the AI Integration implementation on a dedicated test branch without modifying the team's `main` branch.
+- Integrated and tested the backend with the AI analysis service; the release includes the public mock website and private team-only real-model route.
 
 ## API endpoints
 
@@ -61,7 +59,7 @@ The response includes `status`, `findings`, `correlations`, `patch`, `tests`, `r
 - A real end-to-end **backend-to-Nebius** request returned HTTP **200**, `status: "completed"`, and `ai.source: "nebius"`, with **3 findings**, **2 correlations**, and **2 simulated actions** in the observed run.
 - In a subsequent live run, the proposed Dockerfile patch passed the backend's **static-only** review (`tests.proposed_patch.passed: true`). Model outputs may vary across runs.
 
-These checks use **sample Dockerfiles and mock attack logs** as inputs, even when the AI model itself is real. A full frontend-to-backend-to-Nebius test and production deployment/security validation are **not** claimed as complete.
+These checks use **sample Dockerfiles and synthetic attack logs** as inputs, even when the AI model itself is real. On October 29, 2026, the hosted team-only browser route successfully invoked real Nebius inference. The resulting malformed proposed patch was not validated; its false PASS was subsequently fixed and regression-tested. The public Chromium E2E uses mock mode only. Production security validation and execution of proposed patches are **not** claimed.
 
 ## Run and test
 
@@ -83,9 +81,9 @@ Run combined backend and AI tests:
 py -m pytest backend ai/tests -q
 ```
 
-## Remaining integration work
+## Release verification and limits
 
-- Coordinate with the Frontend Developer to connect the UI to `POST /api/analyze`.
-- Review and test any new Security or Prompt & Reasoning updates before final integration.
-- Repeat the complete team-level end-to-end test after all components are ready.
-- Merge to `main` only after team review and approval.
+- The backend is connected to the working `webapp/` UI and AI service.
+- The complete CI pipeline passed on Windows and Ubuntu (401 passed, 2 skipped, 1 warning per Python job), plus public Chromium browser E2E and the Docker Compose smoke test.
+- The public website stays in mock mode. Private team Nebius inference is separately authenticated and explicitly enabled.
+- Dockerfile validation remains **static**; security responses are **simulations**, not real enforcement.
