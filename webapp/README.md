@@ -10,6 +10,7 @@ This folder contains the working SafeHeal Cloud browser dashboard and the FastAP
 - Exports the investigation report as JSON and the proposed patch for inspection; neither is executed.
 - Shows a sanitized, limited HTTP suspicious-path feed, not a full SIEM.
 - Offers a separate team-only real Nemotron demo; public analysis remains mock-only.
+- Automatically retries backend health checks after a slow Render cold start or brief interruption, with bounded backoff and a visible reconnecting indicator; it never starts a paid Nemotron request automatically.
 
 ## Main files
 
