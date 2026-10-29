@@ -281,8 +281,8 @@ def _mask_sensitive_logs(value: Any) -> Any:
     if isinstance(value, list):
         return [_mask_sensitive_logs(child) for child in value]
     if isinstance(value, str):
-        value = INLINE_LOG_SECRET_RE.sub(lambda match: match.group(1) + REDACTED, value)
-        return BEARER_RE.sub(lambda match: match.group(1) + " " + REDACTED, value)
+        value = BEARER_RE.sub(lambda match: match.group(1) + " " + REDACTED, value)
+        return INLINE_LOG_SECRET_RE.sub(lambda match: match.group(1) + REDACTED, value)
     return value
 
 
