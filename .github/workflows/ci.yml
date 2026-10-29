@@ -6,6 +6,7 @@ on:
       - main
       - integration/frontend-ready
       - feature/webapp-integration
+      - feature/render-deployment
   pull_request:
     branches:
       - main
