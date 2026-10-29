@@ -7,7 +7,7 @@ const svgPaths = {
  cube:'<path d="m12 2 9 5-9 5-9-5 9-5ZM3 7v10l9 5 9-5V7M12 12v10"/>',
  activity:'<path d="M2 12h4l3-8 5 16 3-8h5"/>',radar:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/><path d="M12 12 19 5"/>',
  file:'<path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10l-7-7Z"/><path d="M13 3v7h7M8 15h8M8 18h6"/>',settings:'<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15.1 1.2.8-1.4 2.5-1.5-.5a8 8 0 0 1-2.1 1.2l-.3 1.6h-2.9l-.3-1.6a8 8 0 0 1-2.1-1.2l-1.5.5-1.4-2.5 1.2-.8a8.7 8.7 0 0 1 0-2.4l-1.2-.8 1.4-2.5 1.5.5a8 8 0 0 1 2.1-1.2l.3-1.6h2.9l.3 1.6a8 8 0 0 1 2.1 1.2l1.5-.5 1.4 2.5-1.2.8a8.7 8.7 0 0 1 0 2.4Z" transform="translate(-1 -2)"/>',
- shield:'<path d="m12 2 9 4v6c0 6-4 9-9 11-5-2-9-5-9-11V6l9-4Z"/><path d="m8.5 12 2.5 2.5 5-5"/>',alert:'<path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 18h.01"/>',refresh:'<path d="M20 11a8 8 0 0 0-14-5L3 9m0-6v6h6M4 13a8 8 0 0 0 14 5l3-3m0 6v-6h-6"/>',upload:'<path d="M12 16V4m-5 5 5-5 5 5"/><path d="M4 16v4h16v-4"/>',download:'<path d="M12 3v13m-5-5 5 5 5-5"/><path d="M4 17v4h16v-4"/>',play:'<path d="m8 5 12 7-12 7V5Z"/>',code:'<path d="m8 5-6 7 6 7M16 5l6 7-6 7M14 3l-4 18"/>',scan:'<path d="M3 8V4a1 1 0 0 1 1-1h4M16 3h4a1 1 0 0 1 1 1v4M3 16v4a1 1 0 0 0 1 1h4M16 21h4a1 1 0 0 0 1-1v-4M6 12h12"/>',info:'<circle cx="12" cy="12" r="10"/><path d="M12 11v6M12 7h.01"/>',zap:'<path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z"/>',pause:'<path d="M7 5v14M17 5v14"/>',menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>'
+ shield:'<path d="m12 2 9 4v6c0 6-4 9-9 11-5-2-9-5-9-11V6l9-4Z"/><path d="m8.5 12 2.5 2.5 5-5"/>',alert:'<path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 18h.01"/>',refresh:'<path d="M20 11a8 8 0 0 0-14-5L3 9m0-6v6h6M4 13a8 8 0 0 0 14 5l3-3m0 6v-6h-6"/>',upload:'<path d="M12 16V4m-5 5 5-5 5 5"/><path d="M4 16v4h16v-4"/>',download:'<path d="M12 3v13m-5-5 5 5 5-5"/><path d="M4 17v4h16v-4"/>',play:'<path d="m8 5 12 7-12 7V5Z"/>',lock:'<rect x="5" y="11" width="14" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',code:'<path d="m8 5-6 7 6 7M16 5l6 7-6 7M14 3l-4 18"/>',scan:'<path d="M3 8V4a1 1 0 0 1 1-1h4M16 3h4a1 1 0 0 1 1 1v4M3 16v4a1 1 0 0 0 1 1h4M16 21h4a1 1 0 0 0 1-1v-4M6 12h12"/>',info:'<circle cx="12" cy="12" r="10"/><path d="M12 11v6M12 7h.01"/>',zap:'<path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z"/>',pause:'<path d="M7 5v14M17 5v14"/>',menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>'
 };
 const ICON = n => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${svgPaths[n]||svgPaths.info}</svg>`;
 function icons(root=document){root.querySelectorAll('[data-icon]').forEach(el=>{el.innerHTML=ICON(el.dataset.icon)});}
@@ -107,13 +107,27 @@ async function analyze(){if(state.loading)return;if(!state.dockerfile){toast('Ch
     }
     if(!data)data=await request('/api/analyze',{method:'POST',body:form,timeout:180000});
     state.analysis=data;renderAnalysis();renderDocker();renderOverview();if(data.status==='ai_error'){status(`AI returned an error: ${data.ai?.error?.message||'Check backend configuration'}`,'error');toast('Backend returned an AI error; no findings or patch were fabricated.',true)}else{status('Investigation complete. Review findings and static checks.','success');toast('Investigation completed — review before using any suggested patch.')}}catch(e){state.analysis=null;renderAnalysis();status(`Request failed: ${e.message}`,'error');toast(`Analysis failed: ${e.message}`,true)}finally{state.loading=false;$('analyzeBtn').disabled=false;$('analyzeBtn').innerHTML=ICON('play')+' Start AI investigation <span class="right-arrow">→</span>'}}
+function confirmRealAI(){
+ const dialog=$('teamConfirmDialog');
+ if(!dialog||typeof dialog.showModal!=='function')return Promise.resolve(window.confirm('Run real Nebius? This may use team credits.'));
+ if(dialog.open)return Promise.resolve(false);
+ dialog.returnValue='cancel';
+ return new Promise(resolve=>{
+  dialog.addEventListener('close',()=>resolve(dialog.returnValue==='confirm'),{once:true});
+  dialog.showModal();
+ });
+}
+function setTeamButtonLoading(running){
+ const btn=$('teamNebiusBtn');btn.disabled=running;btn.setAttribute('aria-busy',String(running));
+ const label=btn.querySelector('.team-nebius-button-label');
+ if(label)label.textContent=running?'Running real Nemotron…':'Run real Nemotron';
+}
 async function teamLiveDemo(){
  if(state.loading)return;
  if(!state.online)return toast('Backend is offline.',true);
- if(!confirm('Run one REAL Nebius/Nemotron investigation using the built-in sample? This may consume team AI credits. Team password required.'))return;
+ if(!await confirmRealAI())return;
  await loadDemo();
- state.loading=true;$('analyzeBtn').disabled=true;$('teamNebiusBtn').disabled=true;
- $('teamNebiusBtn').textContent='Running real Nemotron…';
+ state.loading=true;$('analyzeBtn').disabled=true;setTeamButtonLoading(true);
  status('Requesting private Nebius analysis. Model inference can take time.');$('resultStatus').textContent='PROCESSING';$('resultStatus').className='result-state muted-state';
  try{
    const data=await request('/web/team-nebius-demo',{method:'POST',timeout:180000});
@@ -124,8 +138,7 @@ async function teamLiveDemo(){
    status('Team-only live request failed: '+e.message+' — sign in at /web/unlock or check Render environment.','error');
    toast('Team-only live analysis unavailable. Public mock is unaffected.',true)
  }finally{
-   state.loading=false;$('analyzeBtn').disabled=false;$('teamNebiusBtn').disabled=false;
-   $('teamNebiusBtn').innerHTML=ICON('lock')+' Team only: run real Nemotron';
+   state.loading=false;$('analyzeBtn').disabled=false;setTeamButtonLoading(false);
  }
 }
 function renderAnalysis(){const a=state.analysis;const findings=safeArray(a?.findings);const corr=safeArray(a?.correlations);const s=stats();$('resultCount').textContent=a?s.findings:'—';$('resultHigh').textContent=a?s.high:'—';$('resultCorr').textContent=a?s.correlations:'—';$('findingsCountPill').textContent=findings.length;$('correlationsCountPill').textContent=corr.length;

@@ -259,3 +259,16 @@ def test_team_nebius_demo_uses_separate_rate_limit(monkeypatch):
     assert first.status_code == 200
     assert second.status_code == 429
     assert public.status_code == 200
+
+def test_private_button_has_branded_spacing_and_confirmation():
+    with TestClient(app) as client:
+        page = client.get("/").text
+        script = client.get("/web/assets/app.js").text
+        styles = client.get("/web/assets/styles.css").text
+    assert 'class="team-access-panel"' in page
+    assert 'id="teamNebiusBtn"' in page
+    assert 'id="teamConfirmDialog"' in page
+    assert "function confirmRealAI()" in script
+    assert "dialog.showModal()" in script
+    assert ".team-nebius-button" in styles
+    assert ".team-confirm-dialog" in styles
