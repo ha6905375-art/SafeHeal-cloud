@@ -1,10 +1,11 @@
-"""Password-protected public showcase for SafeHeal Cloud.
+"""Public, cost-safe SafeHeal Cloud showcase for the hackathon.
 
 The original webapp.run remains strictly localhost-only. Use this separate
 entrypoint for HTTPS deployments behind a reverse proxy such as Render.
 
-This is a hackathon demo, not a general-purpose production security service.
-Access is restricted so anonymous visitors cannot use Nebius credits.
+Anyone can view the site and run *mock* analysis. Real Nebius analysis and
+private event APIs require a password; public live telemetry is anonymized.
+This is not production-grade authentication, logging, or billing enforcement.
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ from threading import Lock
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
-from ai.config import load_dotenv
+from ai.config import get_settings, load_dotenv
 from backend.live_events import get_events_after
 from backend.main import app as backend_app
 
@@ -53,11 +54,12 @@ def _valid_basic_auth(header: str) -> bool:
 
 
 def _allow_analysis() -> bool:
-    """Small in-memory safeguard; reset on server restart, not a billing cap."""
+    """Small process-local limit, not a durable or distributed billing cap."""
+    default_limit = 40 if get_settings().mode == "mock" else 8
     try:
-        limit = max(1, min(100, int(os.getenv("SAFEHEAL_MAX_ANALYSES_PER_HOUR", "8"))))
+        limit = max(1, min(100, int(os.getenv("SAFEHEAL_MAX_ANALYSES_PER_HOUR", str(default_limit)))))
     except ValueError:
-        limit = 8
+        limit = default_limit
     now = time.monotonic()
     with _attempts_lock:
         while _attempts and _attempts[0] <= now - WINDOW_SECONDS:
@@ -81,17 +83,39 @@ async def lifespan(_: FastAPI):
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
 
+# Explicit allowlist: never expose arbitrary backend routes anonymously.
+PUBLIC_GET_PATHS = frozenset({
+    "/",
+    "/web/assets/app.js",
+    "/web/assets/styles.css",
+    "/web/demo-dockerfile",
+    "/web/live-events",
+    "/api/health",
+    "/api/attack-events",  # Bundled synthetic scenarios, not observed traffic.
+    "/api/debug/demo",     # Harmless test probe; intentionally returns 404.
+})
+
+
+def _is_public_request(request: Request) -> bool:
+    if request.method == "GET" and request.url.path in PUBLIC_GET_PATHS:
+        return True
+    if request.method == "POST" and request.url.path == "/api/analyze":
+        # Public analysis is safe in mock mode ONLY. Switching to live
+        # immediately requires Basic Auth for the same endpoint.
+        return get_settings().mode == "mock"
+    return False
+
+
 @app.middleware("http")
 async def protect_public_demo(request: Request, call_next):
-    if request.url.path == "/api/health" and request.method == "GET":
-        return await call_next(request)
-
-    if not _valid_basic_auth(request.headers.get("authorization", "")):
+    if not _is_public_request(request) and not _valid_basic_auth(
+        request.headers.get("authorization", "")
+    ):
         return JSONResponse(
             status_code=401,
-            content={"detail": "Demo authentication required"},
+            content={"detail": "Private demo credentials required for this endpoint"},
             headers={
-                "WWW-Authenticate": 'Basic realm="SafeHeal Cloud Demo", charset="UTF-8"',
+                "WWW-Authenticate": 'Basic realm="SafeHeal Cloud Private Demo", charset="UTF-8"',
                 "Cache-Control": "no-store",
             },
         )
@@ -131,10 +155,34 @@ def demo_dockerfile():
 
 @app.get("/web/live-events", include_in_schema=False)
 def demo_live_events(after_id: int = 0):
+    """Public feed without client IP addresses or requested URL paths."""
     if after_id < 0:
         raise HTTPException(status_code=422, detail="after_id must be nonnegative")
     events = get_events_after(after_id)
-    return {"mode": "live", "total": len(events), "events": events}
+    public_events = [
+        {
+            "id": event["id"],
+            "timestamp": event["timestamp"],
+            "event_type": event["event_type"],
+            "source_ip": "REDACTED",
+            "endpoint": "[redacted]",
+            "severity": event["severity"],
+            "status": event["status"],
+            "action_taken": "NONE",
+        }
+        for event in events
+    ]
+    return {"mode": "live", "privacy": "anonymized", "total": len(public_events), "events": public_events}
+
+
+@app.get("/web/unlock", include_in_schema=False)
+def unlock_private_demo():
+    """Optional team-only sign-in endpoint for real Nebius demonstrations.
+
+    Visit this URL in a browser and enter demo credentials. The browser then
+    remembers the same-origin Basic Auth credentials for private API calls.
+    """
+    return PlainTextResponse("Private SafeHeal Cloud access enabled. Return to the dashboard.")
 
 
 # Preserve existing backend routes and middleware without rewriting them.
