@@ -113,6 +113,15 @@ def main() -> None:
                 assert "PASS" in page.locator("#validationContent").inner_text()
                 assert "USER " in page.locator("#patchCode").inner_text()
 
+                # Explicit docs-capture workflow only. Capture PUBLIC mock analysis,
+                # never the authenticated Nemotron route or any credential.
+                if os.getenv("SAFEHEAL_CAPTURE_PREVIEW") == "1":
+                    screenshot = ROOT / "assets" / "demo-preview.png"
+                    screenshot.parent.mkdir(parents=True, exist_ok=True)
+                    page.screenshot(path=str(screenshot), full_page=False)
+                    print("Captured public mock demo preview.")
+
+
                 # Docker Security must show the generated diff.
                 page.locator('[data-page="docker"]').click()
                 assert "USER " in page.locator("#secureCode").inner_text()
