@@ -49,8 +49,44 @@ function suspicious(e){return !['HTTP_REQUEST','API_CALL'].includes(String(e.eve
 const eventDetail=e=>e.description||e.details||e.payload||e.endpoint||(e.target_port!==undefined?`Port ${e.target_port}`:'—');
 const shortTime=t=>{if(!t)return '—';const m=String(t).match(/T(\d\d:\d\d:\d\d)/);return m?m[1]:'—'};
 function showPage(name){if(!$('page-'+name))return;state.activePage=name;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.page===name));const titles={overview:'Overview',analysis:'AI Investigation',docker:'Docker Security',threats:'Threat Monitoring',live:'Live Attack Feed',reports:'Reports',settings:'Settings'};$('crumbName').textContent=titles[name];$('sidebar').classList.remove('open');if(location.hash!==`#${name}`)history.replaceState(null,'',`#${name}`);window.scrollTo({top:0,behavior:'smooth'});if(name==='live')pollLive();if(name==='settings')refreshSettings()}
-function renderMode(){const m=$('modeTag');m.className='mode-tag '+(state.online?'online':'offline');$('modeText').textContent=state.online?'BACKEND CONNECTED':'OFFLINE PREVIEW';$('topologyBadge').textContent=state.source==='api'?'BACKEND DEMO DATA':'OFFLINE DEMO DATA'}
-async function checkHealth(){try{const data=await request('/api/health',{timeout:2500});state.online=data&&data.status==='ok';}catch{state.online=false}renderMode();if(state.activePage==='settings')refreshSettings();return state.online}
+// Render free services may take longer than an initial health probe to wake.
+// Retry only the inexpensive health endpoint; never auto-trigger paid Nebius inference.
+let healthCheckInFlight=false;
+let healthRetryTimer=null;
+let healthFailures=0;
+function scheduleHealthCheck(){
+  clearTimeout(healthRetryTimer);
+  // Back off when unavailable, and poll less frequently once connected.
+  const delay=state.online?30000:Math.min(15000,3000*2**Math.max(0,healthFailures-1));
+  healthRetryTimer=setTimeout(async()=>{
+    try{await checkHealth()}finally{scheduleHealthCheck()}
+  },delay);
+}
+function renderMode(){const m=$('modeTag');m.className='mode-tag '+(state.online?'online':'offline');$('modeText').textContent=state.online?'BACKEND CONNECTED':healthFailures?'RECONNECTING · AUTO RETRY':'CHECKING CONNECTION';$('topologyBadge').textContent=state.source==='api'?'BACKEND DEMO DATA':'OFFLINE DEMO DATA'}
+async function checkHealth(){
+  if(healthCheckInFlight)return state.online;
+  healthCheckInFlight=true;
+  const wasOnline=state.online;
+  try{
+    const data=await request('/api/health',{timeout:5000,cache:'no-store'});
+    state.online=Boolean(data&&data.status==='ok');
+  }catch{state.online=false}
+  finally{healthCheckInFlight=false}
+  if(state.online)healthFailures=0;
+  else healthFailures++;
+  renderMode();
+  if(!state.analysis&&!state.loading){
+    if(state.online&&!wasOnline)status('Backend connected. Ready to investigate.','success');
+    else if(!state.online)status('Demo server is waking up or temporarily unavailable. Retrying automatically…');
+  }
+  if(state.online&&!wasOnline){
+    // Replace bundled preview with backend scenario when the server recovers.
+    await loadScenario(true);
+    if(state.activePage==='live')pollLive();
+  }
+  if(state.activePage==='settings')refreshSettings();
+  return state.online;
+}
 async function loadScenario(silent=false){const scenario=state.scenario;let source='preview';let data=scenario==='classic'?classicEvents:extendedEvents;
  if(state.online){try{const result=await request(`/api/attack-events?scenario=${encodeURIComponent(scenario)}`);if(!Array.isArray(result.events))throw Error('Invalid event response');data=result.events;source='api';}catch(e){if(!silent)toast(`Scenario unavailable: ${e.message}. Showing bundled sample.`,true)}}
  state.events=data;state.source=source;renderMode();renderEvents();renderOverview();if(!silent)toast(source==='api'?'Scenario loaded from backend':'Showing bundled offline preview');}
@@ -92,7 +128,7 @@ function chooseDocker(file){if(!file)return;state.demoLoaded=false;state.dockerf
 function chooseLogs(file){if(!file)return;state.demoLoaded=false;state.logs=file;$('logsFileName').textContent=file.name;status('Evidence selected. Ready to analyze.')}
 async function loadDemo(){let text=DEMO_DOCKER;if(state.online){try{const r=await request('/web/demo-dockerfile');if(typeof r==='string'&&r.startsWith('FROM'))text=r}catch{}}
  chooseDocker(new File([text],'Dockerfile',{type:'text/plain'}));chooseLogs(new File([JSON.stringify(state.events,null,2)],'attack_logs.json',{type:'application/json'}));state.demoLoaded=true;toast('Demo input loaded. Click Start AI investigation.');}
-async function analyze(){if(state.loading)return;if(!state.dockerfile){toast('Choose a Dockerfile or load the demo first.',true);showPage('analysis');return}if(!state.online){toast('Backend is offline. Start the website server first to run an AI analysis.',true);status('Backend unavailable — offline preview only.','error');return}
+async function analyze(){if(state.loading)return;if(!state.dockerfile){toast('Choose a Dockerfile or load the demo first.',true);showPage('analysis');return}if(!state.online){toast('Demo server is waking up or temporarily unavailable. Retrying automatically.',true);status('Backend reconnecting automatically. Please retry shortly.','error');return}
  if(state.dockerfile.name!=='Dockerfile'){toast('The uploaded file must be named exactly Dockerfile.',true);return}if(state.dockerfile.size>1024*1024||state.logs?.size>1024*1024){toast('Each file must be at most 1 MB.',true);return}if(state.logs&&!state.logs.name.toLowerCase().endsWith('.json')){toast('Attack logs must be a JSON file.',true);return}state.loading=true;$('analyzeBtn').disabled=true;$('analyzeBtn').textContent='Analyzing evidence…';status('Working with the backend. Live AI mode may take longer.');$('resultStatus').textContent='PROCESSING';$('resultStatus').className='result-state muted-state';
  const form=new FormData();form.append('dockerfile',state.dockerfile,'Dockerfile');if(state.logs)form.append('attack_logs',state.logs,state.logs.name);
  try{
@@ -124,7 +160,7 @@ function setTeamButtonLoading(running){
 }
 async function teamLiveDemo(){
  if(state.loading)return;
- if(!state.online)return toast('Backend is offline.',true);
+ if(!state.online)return toast('Demo server is reconnecting automatically. Please retry shortly.',true);
  if(!await confirmRealAI())return;
  await loadDemo();
  state.loading=true;$('analyzeBtn').disabled=true;setTeamButtonLoading(true);
@@ -367,6 +403,6 @@ function enhanceDropdowns(){
   window.addEventListener('scroll',()=>{if(opened)layout(opened)},true);
 }
 
-async function boot(){wire();state.scenario='extended';$('scenarioSelect').value='extended';$('settingsScenario').value='extended';renderMode();renderOverview();renderEvents();enhanceDropdowns();renderAnalysis();renderDocker();renderLive();clock();setInterval(clock,1000);const page=location.hash.slice(1);if(page&&$('page-'+page))showPage(page);await checkHealth();await loadScenario(true);refreshSettings();setInterval(()=>{if(state.polling&&state.online)pollLive()},4000);if(state.online&&state.activePage==='live')pollLive();}
+async function boot(){wire();state.scenario='extended';$('scenarioSelect').value='extended';$('settingsScenario').value='extended';renderMode();renderOverview();renderEvents();enhanceDropdowns();renderAnalysis();renderDocker();renderLive();clock();setInterval(clock,1000);const page=location.hash.slice(1);if(page&&$('page-'+page))showPage(page);await checkHealth();refreshSettings();scheduleHealthCheck();setInterval(()=>{if(state.polling&&state.online)pollLive()},4000);}
 boot().catch(e=>{console.error('SafeHeal boot failure:',e);toast('The dashboard could not initialize.',true)});
 })();
