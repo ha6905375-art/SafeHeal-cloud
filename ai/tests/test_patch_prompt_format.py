@@ -84,3 +84,61 @@ def test_live_patch_with_malformed_user_is_rejected():
 
     assert result["passed"] is False
     assert len(result["issues"]) > 0
+
+
+
+def test_nebius_patch_missing_user_is_rejected():
+    """Regression test for the actual Nebius patch failure."""
+    original = (
+        'FROM python:3.9-slim\n'
+        'EXPOSE 22\n'
+        'CMD ["python", "app.py"]\n'
+    )
+
+    # AI created the user but forgot to switch to it.
+    bad_patch = (
+        'FROM python:3.9-slim\n'
+        'WORKDIR /app\n'
+        'RUN useradd -m appuser\n'
+        'COPY . .\n'
+        'EXPOSE 5000\n'
+        'CMD ["python", "app.py"]\n'
+    )
+
+    result = review_patch(original, bad_patch, [])
+
+    assert result["passed"] is False
+    assert any(
+        issue["code"] == "missing_user"
+        for issue in result["issues"]
+    )
+
+
+def test_nebius_patch_with_nonroot_user_passes():
+    """Verify that adding USER appuser fixes the reported issue."""
+    original = (
+        'FROM python:3.9-slim\n'
+        'EXPOSE 22\n'
+        'CMD ["python", "app.py"]\n'
+    )
+
+    good_patch = (
+        'FROM python:3.9-slim\n'
+        'WORKDIR /app\n'
+        'RUN useradd -m appuser\n'
+        'COPY . .\n'
+        'EXPOSE 5000\n'
+        'USER appuser\n'
+        'CMD ["python", "app.py"]\n'
+    )
+
+    result = review_patch(original, good_patch, [])
+
+    assert result["passed"] is True
+
+
+def test_prompt_requires_explicit_nonroot_user():
+    """Ensure Nemotron receives the strengthened non-root rules."""
+    assert "MANDATORY NON-ROOT PATCH VERIFICATION" in SYSTEM_PROMPT
+    assert "USER appuser" in SYSTEM_PROMPT
+    assert "Confirm the final USER is non-root" in SYSTEM_PROMPT
