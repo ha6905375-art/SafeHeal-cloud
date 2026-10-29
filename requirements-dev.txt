@@ -1,5 +1,6 @@
-# Development and test dependencies (runtime dependencies are in backend/requirements.txt).
+# Direct development/test dependencies pinned to successful GitHub CI versions.
+# Includes the pinned application runtime dependencies.
 -r backend/requirements.txt
-pytest
-httpx
-ruff
+pytest==9.2.0
+httpx==0.28.1
+ruff==0.17.3

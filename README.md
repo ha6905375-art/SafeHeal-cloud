@@ -104,7 +104,7 @@ curl.exe -sS -X POST "http://127.0.0.1:8000/api/analyze" `
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-GitHub Actions runs offline with `AI_MODE=mock`. On **October 29, 2026**, the deployment branch passed **401 tests, 2 skipped, 1 warning**. The public mock site and private Nebius route were exercised manually in a browser; automated full-browser end-to-end testing has not yet been added.
+GitHub Actions installs the requirements from scratch on **Ubuntu and Windows (Python 3.11)**, runs `python -m pip check`, then runs tests offline with `AI_MODE=mock`. Before adding the Windows job, the deployment branch passed **401 tests, 2 skipped, 1 warning** on Ubuntu (October 29, 2026). The public mock site and private Nebius route were exercised manually in a browser; automated full-browser end-to-end testing has not yet been added.
 
 The AI evaluator can be run in mock mode without credits:
 
@@ -122,5 +122,5 @@ Any explicit live evaluation or inference may consume Nebius credits.
 - **Free Render may sleep** after inactivity; the first request after sleep can be slower.
 - Process-local request throttling and HTTP Basic credentials are demo safeguards, not production-grade authentication, durable audit logging, or spending limits.
 - Hosting security may reject some custom uploads containing intentionally exploit-like examples.
-- Dependencies have **not yet been pinned**, and an automated browser E2E suite and optional Docker build verification remain follow-up work.
+- **Direct Python runtime and test dependencies are pinned** to versions exercised in GitHub CI (Python 3.11); transitive packages are still resolver-selected (not a full hash-locked environment). Automated browser E2E tests and optional Docker build verification remain follow-up work.
 - **`feature/render-deployment` has not been merged into `main`.** Coordinate the final merge with the team.

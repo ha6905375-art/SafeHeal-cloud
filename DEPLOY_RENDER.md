@@ -63,6 +63,8 @@ The private request has **no browser-uploaded Dockerfile body**; the server load
 
 The Free instance may **sleep after inactivity**, which can delay the first request. The event queue resets on restart; the public feed redacts IP addresses and endpoints.
 
+Direct runtime dependencies in `backend/requirements.txt` and test tools in `requirements-dev.txt` are pinned to previously passing CI versions. GitHub Actions checks clean installs on Ubuntu **and Windows**, and verifies dependency compatibility with `python -m pip check` before the offline tests. Transitive packages remain resolver-selected (not a full hashed lockfile).
+
 GitHub Actions runs offline with `AI_MODE=mock`. On October 29, 2026, **401 tests passed, 2 skipped, 1 warning**. Manual browser tests confirmed both the public mock and a private real Nemotron call. A real reply initially included malformed escaped Dockerfile line breaks; the conflicting static PASS display was fixed in code and regression-tested, but **the originally exported live patch should not be described as passing**.
 
 No proposed Dockerfile has been built or run, no patch was applied, and no real firewall blocking was performed. HTTP Basic and process-local limits are intended for a short hackathon demo, not production use.

@@ -1,3 +1,5 @@
-fastapi
-uvicorn[standard]
-python-multipart
+# Direct runtime dependencies pinned to versions that passed GitHub CI (2026-10-29).
+# Python 3.11; transitive dependencies still follow the pip resolver.
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
