@@ -60,11 +60,25 @@ def test_proposed_patch_static_review_failure(monkeypatch):
 
 
 def test_proposed_patch_static_review_success_not_runtime_claim(monkeypatch):
-    monkeypatch.setattr(main, "analyze_evidence", lambda *_: fake_ai(DOCKER.decode()))
+    # A named USER alone is insufficient: it must be created in the final stage.
+    complete_patch = (
+        "FROM python:3.11-slim\n"
+        "RUN useradd -m appuser\n"
+        "USER appuser\n"
+    )
+    monkeypatch.setattr(main, "analyze_evidence", lambda *_: fake_ai(complete_patch))
     data = post().json()
     assert data["tests"]["proposed_patch"]["passed"] is True
     assert data["tests"]["proposed_patch"]["status"] == "static_review_only"
     assert data["ai"]["patch_status"] == "proposed_not_validated"
+
+
+def test_proposed_patch_with_undefined_user_fails_combined_static_review(monkeypatch):
+    monkeypatch.setattr(main, "analyze_evidence", lambda *_: fake_ai(DOCKER.decode()))
+    data = post().json()
+    assert data["tests"]["proposed_patch"]["passed"] is False
+    assert any("never created" in item for item in data["tests"]["proposed_patch"]["details"])
+    assert data["ai"]["patch_status"] == "proposed_failed_static_review"
 
 
 def test_ai_failure_keeps_backend_checks(monkeypatch):
