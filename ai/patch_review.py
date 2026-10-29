@@ -125,7 +125,7 @@ def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) ->
     # Reject unknown/garbled Dockerfile directives that could otherwise slip
     # through root/secret checks and be mislabeled a static PASS. This is still
     # a text-based check, not a full Dockerfile parser or a Docker build.
-    joined = re.sub(r"\\\\\\r?\\n\\s*", " ", patched)
+    joined = re.sub(r"\\\r?\n\s*", " ", patched)
     for line in joined.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
