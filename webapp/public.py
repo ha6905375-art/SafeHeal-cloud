@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import base64
 import binascii
+import io
+import json
 import os
 import secrets
 import time
@@ -89,6 +91,7 @@ PUBLIC_GET_PATHS = frozenset({
     "/web/assets/app.js",
     "/web/assets/styles.css",
     "/web/demo-dockerfile",
+    "/web/demo-analysis",  # Fixed server-side mock evidence, no risky upload.
     "/web/live-events",
     "/api/health",
     "/api/attack-events",  # Bundled synthetic scenarios, not observed traffic.
@@ -120,7 +123,12 @@ async def protect_public_demo(request: Request, call_next):
             },
         )
 
-    if request.method == "POST" and request.url.path == "/api/analyze":
+    analysis_request = (
+        request.method == "POST" and request.url.path == "/api/analyze"
+    ) or (
+        request.method == "GET" and request.url.path == "/web/demo-analysis"
+    )
+    if analysis_request:
         if not _allow_analysis():
             return JSONResponse(
                 status_code=429,
@@ -151,6 +159,37 @@ def demo_dockerfile():
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Sample Dockerfile unavailable")
     return PlainTextResponse(path.read_text(encoding="utf-8"))
+
+
+@app.get("/web/demo-analysis", include_in_schema=False)
+async def demo_analysis():
+    """Analyze bundled synthetic evidence without uploading it through the CDN.
+
+    This is intentionally unavailable in live mode: the endpoint can never
+    spend Nebius credits, even for users with the private demo password.
+    """
+    if get_settings().mode != "mock":
+        raise HTTPException(
+            status_code=403,
+            detail="Demo-only analysis is disabled in live mode",
+        )
+
+    from fastapi import UploadFile
+    from backend.main import analyze
+
+    dockerfile = (REPO / "security" / "vulnerable.Dockerfile").read_bytes()
+    logs = (REPO / "security" / "attack_logs.json").read_bytes()
+
+    return await analyze(
+        dockerfile=UploadFile(
+            filename="Dockerfile",
+            file=io.BytesIO(dockerfile),
+        ),
+        attack_logs=UploadFile(
+            filename="attack_logs.json",
+            file=io.BytesIO(logs),
+        ),
+    )
 
 
 @app.get("/web/live-events", include_in_schema=False)

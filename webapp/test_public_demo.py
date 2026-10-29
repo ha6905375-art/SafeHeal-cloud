@@ -35,6 +35,7 @@ def test_anonymous_health_is_available():
     "/web/assets/app.js",
     "/web/assets/styles.css",
     "/web/demo-dockerfile",
+    "/web/demo-analysis",
     "/web/live-events",
     "/api/attack-events",
 ])
@@ -99,6 +100,36 @@ def test_mock_analysis_is_public_without_password():
     assert response.status_code == 200
     assert response.json()["status"] == "completed"
     assert response.json()["ai"]["source"] == "mock"
+
+
+def test_server_side_demo_is_mock_and_matches_existing_contract():
+    with TestClient(app) as client:
+        response = client.get("/web/demo-analysis")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "completed"
+    assert data["ai"]["source"] == "mock"
+    assert len(data["findings"]) >= 3
+    assert "proposed_patch" in data["tests"]
+
+
+def test_demo_endpoint_never_calls_live_nebius(monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    with TestClient(app) as client:
+        response = client.get("/web/demo-analysis")
+        authed = client.get("/web/demo-analysis", headers=credentials())
+    assert response.status_code == 403
+    assert authed.status_code == 403
+    assert "live mode" in response.json()["detail"]
+
+
+def test_demo_route_respects_analysis_rate_limit(monkeypatch):
+    monkeypatch.setenv("SAFEHEAL_MAX_ANALYSES_PER_HOUR", "1")
+    with TestClient(app) as client:
+        first = client.get("/web/demo-analysis")
+        second = client.get("/web/demo-analysis")
+    assert first.status_code == 200
+    assert second.status_code == 429
 
 
 def test_real_nebius_analysis_requires_password_without_calling_nebius(monkeypatch):

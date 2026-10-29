@@ -68,3 +68,21 @@ distributed rate limits, audit logs, or a reliable billing cap.
 Do not remove the live-mode authentication check. The public mock endpoint
 is rate-limited, but the process-local limit resets whenever the server restarts.
 A provider-side budget cap is still recommended before using Nebius live.
+
+## Public mock upload 403 from the hosting edge
+
+Some security gateways block multipart Dockerfile uploads that contain
+intentional insecure demo secrets or exploitation examples, returning
+HTML **403 Blocked** before the backend sees the request.
+
+- Click **Load demo Dockerfile + logs**, then **Start AI Investigation**.
+  The site uses `GET /web/demo-analysis` for built-in mock evidence.
+  The Python backend loads its bundled fixture files directly, so the
+  browser does not upload those suspicious example strings to the edge.
+- This endpoint runs only if `AI_MODE=mock`; it is disabled in live mode
+  **even for private authenticated users**.
+- Custom files continue to use `POST /api/analyze`, and a hosting security
+  gateway can still block uploads. The site now gives a readable error
+  in that case; do not disable hosting protections for public uploads.
+- Results from the bundled server-side case may have a different event
+  count than the currently selected extended scenario in the dashboard.
