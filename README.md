@@ -54,6 +54,17 @@ A real inference call was successfully completed on the hosted website on **Octo
 
 The legacy `frontend/` folder is a placeholder; **the working frontend is in `webapp/`**.
 
+### Component documentation
+
+- [Frontend and website — `webapp/`](webapp/README.md)
+- [Backend API — `backend/`](backend/README.md)
+- [AI and Nemotron — `ai/`](ai/README.md)
+- [Security examples and validation — `security/`](security/README.md)
+- [API contracts — `contracts/`](contracts/README.md)
+- [Chromium E2E tests — `e2e/`](e2e/README.md)
+
+These READMEs document the implementation by **technical component**, not by team member.
+
 ### Trust and validation boundaries
 
 - Dockerfile and logs are treated as **untrusted data**. The prompt comes from `ai/prompts/security_agent.txt` and `ai/prompts/docker_patch_rules.txt` plus integration rules in `ai/prompts.py`.
@@ -104,7 +115,7 @@ curl.exe -sS -X POST "http://127.0.0.1:8000/api/analyze" `
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-GitHub Actions installs the requirements from scratch on **Ubuntu and Windows (Python 3.11)**, runs `python -m pip check`, then runs tests offline with `AI_MODE=mock`. Before adding the Windows job, the deployment branch passed **401 tests, 2 skipped, 1 warning** on Ubuntu (October 29, 2026). The public mock site and private Nebius route were exercised manually in a browser. CI additionally runs a **real headless Chromium browser E2E** for public mock analysis, report download and private-route authentication (no Nebius credits). A separate Docker Compose smoke job builds the **demo server image** and probes health/mock routes. Neither job executes AI-proposed patches.
+GitHub Actions installs the requirements from scratch on **Ubuntu and Windows (Python 3.11)**, runs `python -m pip check`, then runs tests offline with `AI_MODE=mock`. The verified October 29, 2026 CI run passed on **both Ubuntu and Windows: 401 passed, 2 skipped, 1 warning** per Python test job. The public mock site and private Nebius route were also exercised manually in a browser. CI additionally runs a **real headless Chromium browser E2E** for public mock analysis, report download and private-route authentication (no Nebius credits). A separate Docker Compose smoke job builds the **demo server image** and probes health/mock routes. Neither job executes AI-proposed patches.
 
 The AI evaluator can be run in mock mode without credits:
 
@@ -123,7 +134,6 @@ Any explicit live evaluation or inference may consume Nebius credits.
 - Process-local request throttling and HTTP Basic credentials are demo safeguards, not production-grade authentication, durable audit logging, or spending limits.
 - Hosting security may reject some custom uploads containing intentionally exploit-like examples.
 - **Direct Python runtime and test dependencies are pinned** to versions exercised in GitHub CI (Python 3.11); transitive packages are still resolver-selected (not a full hash-locked environment). Browser E2E and **demo service image** Docker Compose smoke checks are included in CI; building or running the **AI-proposed patch image** remains out of scope. The browser E2E covers the critical public workflow, not all UI/assistive-technology combinations.
-- **`feature/render-deployment` has not been merged into `main`.** Coordinate the final merge with the team.
 
 ## Optional local Docker Compose demo
 
