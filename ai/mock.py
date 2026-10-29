@@ -212,7 +212,7 @@ def mock_model_reply(dockerfile_text: str, attack_logs: Optional[Any] = None) ->
         "correlations": correlations,
         "patch": {"patched_dockerfile": patched_text, "diff": "", "summary": patch_summary},
         "limitations": ["Mock mode: simple pattern rules, not real AI analysis."]
-        + (["Changing the Python base may break dependencies; no image was built or run."]
+        + (["Python 3.11 compatibility with this application's dependencies and startup is unverified; no image was built or run."]
            if unsupported_python else []),
         "next_steps": ["Run in live mode for model-based analysis.", "Validate the proposed patch in the backend."]
         + (["Build the proposed image and test application dependencies and startup."
