@@ -56,6 +56,57 @@ def _final_stage(instructions: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return instructions[starts[-1]:] if starts else instructions
 
 
+# Official Python Docker Hub image tags only. This is a version-support
+# guardrail, not a registry lookup, an image vulnerability scan, or a build.
+# As of 2026-10-30, Python 3.10 and earlier are end-of-life; 3.11+ are
+# supported (https://devguide.python.org/versions/). Review as EOL dates advance.
+MIN_SUPPORTED_PYTHON_SERIES = (3, 11)
+OFFICIAL_PYTHON_IMAGE_NAMES = {
+    "python", "library/python", "docker.io/library/python",
+    "index.docker.io/library/python",
+}
+PYTHON_MINOR_TAG_RE = re.compile(r"^(\d+)\.(\d+)(?=$|[._-])")
+
+
+def _python_base_issue(from_args: str) -> dict[str, str] | None:
+    """Review an official Python FROM image, including --platform and build stages.
+
+    An explicit version below the supported floor is rejected; an unversioned,
+    variable or floating tag is marked unverified rather than falsely passing.
+    Images from other publishers are not assumed to be official Python images.
+    """
+    parts = from_args.split()
+    image = next((token for token in parts if not token.startswith("--")), "")
+    image = image.split("@", 1)[0]
+    repo, sep, tag = image.rpartition(":")
+    if not sep:
+        repo, tag = image, ""
+    if repo.lower() not in OFFICIAL_PYTHON_IMAGE_NAMES:
+        return None
+
+    version = PYTHON_MINOR_TAG_RE.match(tag)
+    if version:
+        series = (int(version.group(1)), int(version.group(2)))
+        if series < MIN_SUPPORTED_PYTHON_SERIES:
+            return {
+                "code": "unsupported_python_base",
+                "message": (
+                    f"Official Python image version {series[0]}.{series[1]} "
+                    "is end-of-life as of October 2026; upgrade to a "
+                    "supported series after testing application compatibility."
+                ),
+            }
+        return None
+    return {
+        "code": "unverified_python_base_version",
+        "message": (
+            "The official Python base image has no verifiable major.minor version "
+            "(for example 'latest', '3', or a variable tag); use a supported, "
+            "explicit Python series and confirm compatibility."
+        ),
+    }
+
+
 def _hardcoded_secrets(instructions: list[tuple[str, str]]) -> list[str]:
     found = []
     for name, value in instructions:
@@ -139,6 +190,13 @@ def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) ->
                            "message": f"Unknown Dockerfile instruction '{match.group(1)}'."})
 
     instructions = _instructions(patched)
+    # Check EVERY stage, not just the final stage, because old Python in a build
+    # stage also remains part of the proposed Dockerfile.
+    for instruction, arguments in instructions:
+        if instruction == "FROM":
+            image_issue = _python_base_issue(arguments)
+            if image_issue:
+                issues.append(image_issue)
     stage = _final_stage(instructions)
 
     for key in _hardcoded_secrets(instructions):

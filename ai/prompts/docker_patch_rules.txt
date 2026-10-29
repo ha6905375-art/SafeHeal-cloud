@@ -66,9 +66,15 @@ BEFORE RETURNING THE PATCH:
 - Do not remove functionality without justification.
 
 5. BASE IMAGE SECURITY
-- Identify outdated or unsupported base images.
-- Recommend supported versions when compatible.
-- Do not assume dependency compatibility without testing.
+- Identify outdated or unsupported base images, including build stages.
+- As of October 2026, Python 3.9 and 3.10 are end-of-life. Do not
+  propose official Python base tags for those series.
+- Prefer an explicitly versioned supported Python base (3.11 or newer)
+  if compatible with the application's dependencies and behavior.
+- Do not assume dependency compatibility without testing. State that
+  build/startup validation is required, even when the patch is statically reviewed.
+- If a safe supported base cannot be chosen, explain the uncertainty; do not
+  assert an unverified upgrade is safe.
 - Do not claim an image is immutable unless pinned by digest.
 
 6. PATCH QUALITY

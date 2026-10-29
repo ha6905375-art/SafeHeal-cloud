@@ -15,13 +15,13 @@ def test_prompt_requires_real_decoded_dockerfile_line_breaks():
 
 def test_mixed_redundant_breaks_are_cleaned():
     original = (
-        'FROM python:3.9-slim\n'
+        'FROM python:3.11-slim\n'
         'EXPOSE 22\n'
         'CMD ["python", "app.py"]\n'
     )
 
     malformed = (
-        'FROM python:3.9-slim\\n\n'
+        'FROM python:3.11-slim\\n\n'
         'RUN useradd -m appuser\\n\n'
         'USER appuser\\n\n'
         'EXPOSE 5000\n'
@@ -64,10 +64,10 @@ def test_printf_escape_with_real_line_break_is_preserved():
 
 
 def test_live_patch_with_malformed_user_is_rejected():
-    original = 'FROM python:3.9-slim\nEXPOSE 22\n'
+    original = 'FROM python:3.11-slim\nEXPOSE 22\n'
 
     malformed = (
-        'FROM python:3.9-slim\\n\n'
+        'FROM python:3.11-slim\\n\n'
         'WORKDIR /app\\n\n'
         'RUN useradd -m appuser\n'
         'USERappuser\\n\n'
@@ -90,14 +90,14 @@ def test_live_patch_with_malformed_user_is_rejected():
 def test_nebius_patch_missing_user_is_rejected():
     """Regression test for the actual Nebius patch failure."""
     original = (
-        'FROM python:3.9-slim\n'
+        'FROM python:3.11-slim\n'
         'EXPOSE 22\n'
         'CMD ["python", "app.py"]\n'
     )
 
     # AI created the user but forgot to switch to it.
     bad_patch = (
-        'FROM python:3.9-slim\n'
+        'FROM python:3.11-slim\n'
         'WORKDIR /app\n'
         'RUN useradd -m appuser\n'
         'COPY . .\n'
@@ -117,13 +117,13 @@ def test_nebius_patch_missing_user_is_rejected():
 def test_nebius_patch_with_nonroot_user_passes():
     """Verify that adding USER appuser fixes the reported issue."""
     original = (
-        'FROM python:3.9-slim\n'
+        'FROM python:3.11-slim\n'
         'EXPOSE 22\n'
         'CMD ["python", "app.py"]\n'
     )
 
     good_patch = (
-        'FROM python:3.9-slim\n'
+        'FROM python:3.11-slim\n'
         'WORKDIR /app\n'
         'RUN useradd -m appuser\n'
         'COPY . .\n'
@@ -145,9 +145,9 @@ def test_prompt_requires_explicit_nonroot_user():
 
 
 def test_double_escaped_line_end_is_fully_normalized():
-    original = "FROM python:3.9-slim\nEXPOSE 22\n"
+    original = "FROM python:3.11-slim\nEXPOSE 22\n"
     malformed = (
-        "FROM python:3.9-slim\n"
+        "FROM python:3.11-slim\n"
         "WORKDIR /app\\\\n\n"
         "RUN useradd -m appuser\n"
         "USER appuser\n"

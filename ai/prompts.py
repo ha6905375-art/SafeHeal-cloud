@@ -124,7 +124,7 @@ INTEGRATION RULES (enforced by the application; they take precedence on output f
    EXPOSE 5000
    RUN useradd -m appuser
    COPY . .
-   FROM python:3.9-slim
+   FROM python:3.11-slim
 
    Incorrect examples:
    USERappuser
@@ -132,7 +132,7 @@ INTEGRATION RULES (enforced by the application; they take precedence on output f
    EXPOSE5000
    RUNuseradd -m appuser
    COPY. .
-   FROMpython:3.9-slim
+   FROMpython:3.11-slim
 
    Before returning the JSON response, check the decoded patched_dockerfile:
    - Each Dockerfile instruction must start on its own line.
@@ -144,6 +144,16 @@ INTEGRATION RULES (enforced by the application; they take precedence on output f
    - Do not silently omit required instructions.
    - If a valid patch cannot be produced, return an empty patched_dockerfile
      and explain the limitation instead of returning a malformed patch.
+
+5b. Python base image maintenance:
+   Python 3.9 and 3.10 are end-of-life as of October 2026. Do NOT propose an
+   end-of-life official Python base image, even if the input uses it.
+   Prefer a supported, explicit Python series (3.11 or newer) when compatible.
+   Do not assert that changing Python versions preserves the application's
+   dependencies, startup or behavior without building and testing it.
+   If compatibility cannot be assessed, explain the limitation and manual
+   validation needed. If no reasonable supported patch can be proposed,
+   return an empty patched_dockerfile instead of claiming success.
 
 6. Never claim that a fix was applied, tested, or verified, or that an attack was blocked or stopped.
 

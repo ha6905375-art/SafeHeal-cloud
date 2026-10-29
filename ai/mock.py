@@ -10,6 +10,8 @@ import json
 import re
 from typing import Any, Optional
 
+from ai.patch_review import _python_base_issue
+
 MOCK_MODEL_NAME = "mock-rule-based"
 
 
@@ -102,6 +104,22 @@ def mock_model_reply(dockerfile_text: str, attack_logs: Optional[Any] = None) ->
         add("Unpinned base image", "LOW", "Unpinned images can change unexpectedly between builds.",
             latest[0], "Pin the base image to a specific version or digest.")
 
+    # Keep the bundled public demonstration truthful about its intentionally
+    # outdated base. The mock only proposes a version change for a *known*
+    # official Python slim tag; actual app compatibility is NOT established.
+    unsupported_python = []
+    for line in lines:
+        match = re.match(r"^\s*FROM\s+(.+)$", line, re.IGNORECASE)
+        if match:
+            issue = _python_base_issue(match.group(1))
+            if issue and issue["code"] == "unsupported_python_base":
+                unsupported_python.append(line)
+    if unsupported_python:
+        add("Unsupported Python base image", "MEDIUM",
+            "The official Python image version is past its security-support lifetime.",
+            unsupported_python[0],
+            "Choose a supported Python series and verify dependencies and startup.")
+
     correlations: list[dict] = []
     events = _log_events(attack_logs)
     by_title = {f["title"]: f["id"] for f in findings}
@@ -139,6 +157,16 @@ def mock_model_reply(dockerfile_text: str, attack_logs: Optional[Any] = None) ->
     for line in lines:
         if line in secrets or line in debug:
             continue
+        if line in unsupported_python:
+            # This narrow deterministic MOCK replacement is a proposal only;
+            # do not generalize it to unknown images/dependency compatibility.
+            candidate = re.sub(
+                r"^(\s*FROM\s+)python:3\.(?:9|10)-slim(\s*(?:AS\s+\w+)?)$",
+                r"\g<1>python:3.11-slim\g<2>", line, flags=re.IGNORECASE,
+            )
+            if candidate != line:
+                patched.append(candidate)
+                continue
         if line in ssh_install:
             line = re.sub(r"\s*\bopenssh-server\b", "", line)
             if re.search(r"\binstall(\s+-y)?\s*$", line):  # nothing left to install
@@ -172,6 +200,8 @@ def mock_model_reply(dockerfile_text: str, attack_logs: Optional[Any] = None) ->
         changes.append("replaces chmod 777 with 755")
     if any(re.match(r"^\s*FROM\s+python", line, re.IGNORECASE) for line in latest):
         changes.append("pins the base image")
+    if unsupported_python:
+        changes.append("proposes a supported Python base (compatibility unverified)")
     if not user_lines and lines:
         changes.append("adds and switches to a non-root user")
     patch_summary = ("[MOCK] Proposed patch " + ", ".join(changes) + ".") if patched_text and changes else ""
@@ -181,7 +211,11 @@ def mock_model_reply(dockerfile_text: str, attack_logs: Optional[Any] = None) ->
         "findings": findings,
         "correlations": correlations,
         "patch": {"patched_dockerfile": patched_text, "diff": "", "summary": patch_summary},
-        "limitations": ["Mock mode: simple pattern rules, not real AI analysis."],
-        "next_steps": ["Run in live mode for model-based analysis.", "Validate the proposed patch in the backend."],
+        "limitations": ["Mock mode: simple pattern rules, not real AI analysis."]
+        + (["Python 3.11 compatibility with this application's dependencies and startup is unverified; no image was built or run."]
+           if unsupported_python else []),
+        "next_steps": ["Run in live mode for model-based analysis.", "Validate the proposed patch in the backend."]
+        + (["Build the proposed image and test application dependencies and startup."
+            ] if unsupported_python else []),
     }
     return json.dumps(reply)
