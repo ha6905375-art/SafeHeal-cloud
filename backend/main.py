@@ -5,7 +5,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from starlette.concurrency import run_in_threadpool
 
 from backend.simulation import simulate_response
-from backend.validator import validate_dockerfile
+from backend.validator import validate_dockerfile, review_proposed_patch
 from backend.attack_monitor import router as attack_monitor_router
 from backend.live_monitor import live_monitor_middleware
 from backend.live_stream import router as live_stream_router
@@ -162,30 +162,8 @@ async def analyze(
         "details": original_review["details"],
     }
 
-    # 7. A proposed patch is only statically reviewed, never executed.
-    proposed = result.get("patch", {}).get("patched_dockerfile", "")
-
-    if isinstance(proposed, str) and proposed.strip():
-        patch_review = validate_dockerfile(proposed)
-
-        result["tests"]["proposed_patch"] = {
-            "status": "static_review_only",
-            "passed": patch_review["passed"],
-            "details": patch_review["details"],
-        }
-
-        # A passing text review is not Docker build/runtime validation.
-        if (
-            not patch_review["passed"]
-            and result.get("ai", {}).get("patch_status")
-            == "proposed_not_validated"
-        ):
-            result["ai"]["patch_status"] = (
-                "proposed_failed_static_review"
-            )
-            result["ai"].setdefault("warnings", []).append(
-                "Backend static review found issues in the proposed Dockerfile."
-            )
+    # 7. Both static reviews must pass; no images are built or executed.
+    review_proposed_patch(docker_text, result)
 
     # 8. Only the backend owns simulated response actions.
     result["response"] = simulate_response(logs)

@@ -107,3 +107,42 @@ def validate_dockerfile(dockerfile_text: str):
         "passed": len(issues) == 0,
         "details": list(dict.fromkeys(issues))
     }
+
+
+def review_proposed_patch(original: str, result: dict) -> None:
+    """Two complementary STATIC reviews. Passing either one alone is insufficient."""
+    from ai.patch_review import review_patch
+
+    proposed = result.get("patch", {}).get("patched_dockerfile", "")
+    if not isinstance(proposed, str) or not proposed.strip():
+        return
+
+    ai = result.setdefault("ai", {})
+    evidence = ai.get("finding_evidence", {})
+    if not isinstance(evidence, dict):
+        evidence = {}
+    findings = [
+        {**f, "evidence": evidence.get(f.get("id"), "")}
+        for f in result.get("findings", [])
+        if isinstance(f, dict)
+    ]
+    grounded = review_patch(original, proposed, findings)
+    backend = validate_dockerfile(proposed)
+    passed = grounded["passed"] and backend["passed"]
+    details = list(dict.fromkeys(
+        backend["details"] + [issue["message"] for issue in grounded["issues"]]
+    ))
+    result.setdefault("tests", {})["proposed_patch"] = {
+        "status": "static_review_only",
+        "passed": passed,
+        "details": details,
+    }
+    ai["patch_review"] = grounded
+    ai["patch_status"] = (
+        "proposed_not_validated" if passed else "proposed_failed_static_review"
+    )
+    if not passed:
+        warning = "Proposed Dockerfile failed the combined static review."
+        warnings = ai.setdefault("warnings", [])
+        if warning not in warnings:
+            warnings.append(warning)

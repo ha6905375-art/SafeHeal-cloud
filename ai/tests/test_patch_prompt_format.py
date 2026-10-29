@@ -142,3 +142,18 @@ def test_prompt_requires_explicit_nonroot_user():
     assert "MANDATORY NON-ROOT PATCH VERIFICATION" in SYSTEM_PROMPT
     assert "USER appuser" in SYSTEM_PROMPT
     assert "Confirm the final USER is non-root" in SYSTEM_PROMPT
+
+
+def test_double_escaped_line_end_is_fully_normalized():
+    original = "FROM python:3.9-slim\nEXPOSE 22\n"
+    malformed = (
+        "FROM python:3.9-slim\n"
+        "WORKDIR /app\\\\n\n"
+        "RUN useradd -m appuser\n"
+        "USER appuser\n"
+        "EXPOSE 5000\n"
+    )
+    cleaned = normalize_patch_line_breaks(malformed)
+    assert cleaned.splitlines()[1] == "WORKDIR /app"
+    assert "\\n" not in cleaned
+    assert review_patch(original, cleaned, [])["passed"] is True

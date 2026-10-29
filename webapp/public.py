@@ -30,7 +30,7 @@ from ai.service import analyze_evidence
 from backend.live_events import get_events_after
 from backend.main import app as backend_app
 from backend.simulation import simulate_response
-from backend.validator import validate_dockerfile
+from backend.validator import validate_dockerfile, review_proposed_patch
 
 load_dotenv()
 ASSETS = Path(__file__).resolve().parent
@@ -254,19 +254,8 @@ async def team_nebius_demo():
         "passed": original_review["passed"],
         "details": original_review["details"],
     }
-    patch = result.get("patch", {}).get("patched_dockerfile", "")
-    if isinstance(patch, str) and patch.strip():
-        patch_review = validate_dockerfile(patch)
-        result["tests"]["proposed_patch"] = {
-            "status": "static_review_only",
-            "passed": patch_review["passed"],
-            "details": patch_review["details"],
-        }
-        if not patch_review["passed"] and result.get("ai", {}).get("patch_status") == "proposed_not_validated":
-            result["ai"]["patch_status"] = "proposed_failed_static_review"
-            result["ai"].setdefault("warnings", []).append(
-                "Backend static review found issues in the proposed Dockerfile."
-            )
+    # Match /api/analyze: both static reviewers must pass.
+    review_proposed_patch(dockerfile_text, result)
 
     result["response"] = simulate_response(logs)
     return result

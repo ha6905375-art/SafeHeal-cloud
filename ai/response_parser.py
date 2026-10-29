@@ -291,9 +291,9 @@ def normalize_patch_line_breaks(text: str) -> str:
     """
     if not isinstance(text, str):
         return text
-    # Only remove redundant literal \n when it is immediately followed by
-    # an actual line break. Keep other escaped text unchanged.
-    fixed = re.sub(r"(?:\\r)?\\n(?=\r?\n)", "", text)
+    # Remove even multiply-escaped literal \n sequences at a physical line end.
+    # Keep ambiguous in-line escape sequences and quoted RUN strings unchanged.
+    fixed = re.sub(r"(?:\\+n)+(?=\r?\n)", "", text)
     if "\n" in fixed.strip():
         return fixed
     if not ESCAPED_INSTRUCTION_BREAK_RE.search(fixed):

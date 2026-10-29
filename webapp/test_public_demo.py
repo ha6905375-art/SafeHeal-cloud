@@ -272,3 +272,53 @@ def test_private_button_has_branded_spacing_and_confirmation():
     assert "dialog.showModal()" in script
     assert ".team-nebius-button" in styles
     assert ".team-confirm-dialog" in styles
+
+
+
+def test_private_live_patch_disagreement_is_reported_as_failure(monkeypatch):
+    """Prevent the previously observed false PASS on a malformed patch."""
+    monkeypatch.setenv("SAFEHEAL_ALLOW_LIVE_DEMO", "true")
+    monkeypatch.setenv("NEBIUS_API_KEY", "dummy-not-real")
+    monkeypatch.setenv("NEBIUS_MODEL", "test-model")
+
+    def fake_analysis(*args):
+        return {
+            "status": "completed",
+            "findings": [], "correlations": [],
+            "patch": {
+                "patched_dockerfile": (
+                    "FROM python:3.9-slim\n"
+                    "WORKDIR /app\\n\n"
+                    "RUN useradd -m appuser\nUSER appuser\nEXPOSE 5000\n"
+                ),
+                "summary": "Demo", "diff": "",
+            },
+            "ai": {
+                "source": "nebius", "finding_evidence": {},
+                "warnings": [], "patch_status": "proposed_not_validated",
+            },
+        }
+
+    monkeypatch.setattr("webapp.public.analyze_evidence", fake_analysis)
+    with TestClient(app) as client:
+        response = client.post("/web/team-nebius-demo", headers=credentials())
+    assert response.status_code == 200
+    data = response.json()
+    assert data["tests"]["proposed_patch"]["passed"] is False
+    assert data["ai"]["patch_review"]["passed"] is False
+    assert data["ai"]["patch_status"] == "proposed_failed_static_review"
+    assert any("literal" in detail for detail in data["tests"]["proposed_patch"]["details"])
+
+
+def test_combined_patch_review_can_pass_when_both_reviews_pass():
+    from backend.validator import review_proposed_patch
+
+    original = "FROM alpine\nEXPOSE 22\n"
+    result = {
+        "patch": {"patched_dockerfile": "FROM alpine\nUSER 1000\nEXPOSE 5000\n"},
+        "tests": {}, "ai": {"warnings": []},
+    }
+    review_proposed_patch(original, result)
+    assert result["tests"]["proposed_patch"]["passed"] is True
+    assert result["ai"]["patch_review"]["passed"] is True
+    assert result["ai"]["patch_status"] == "proposed_not_validated"
