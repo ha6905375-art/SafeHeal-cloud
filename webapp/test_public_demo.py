@@ -17,6 +17,8 @@ def credentials(username="demo", password="a-long-demo-password-123"):
 def secure_test_env(monkeypatch):
     monkeypatch.setenv("SAFEHEAL_DEMO_PASSWORD", "a-long-demo-password-123")
     monkeypatch.setenv("SAFEHEAL_DEMO_USERNAME", "demo")
+    monkeypatch.delenv("SAFEHEAL_JUDGE_USERNAME", raising=False)
+    monkeypatch.delenv("SAFEHEAL_JUDGE_PASSWORD", raising=False)
     monkeypatch.setenv("SAFEHEAL_MAX_ANALYSES_PER_HOUR", "8")
     monkeypatch.setenv("AI_MODE", "mock")
     with _attempts_lock:
@@ -69,6 +71,110 @@ def test_authorized_users_can_unlock_private_route():
         response = client.get("/web/unlock", headers=credentials())
     assert response.status_code == 200
     assert "Private SafeHeal Cloud access enabled" in response.text
+
+
+def test_judge_unlock_and_public_mock_are_available(monkeypatch):
+    monkeypatch.setenv("SAFEHEAL_JUDGE_USERNAME", "judges")
+    monkeypatch.setenv("SAFEHEAL_JUDGE_PASSWORD", "judge-only-long-password-456")
+    with TestClient(app) as client:
+        unlock = client.get(
+            "/web/unlock", headers=credentials("judges", "judge-only-long-password-456")
+        )
+        public = client.get("/web/demo-analysis")
+    assert unlock.status_code == 200
+    assert public.status_code == 200
+    assert public.json()["ai"]["source"] == "mock"
+
+
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/api/live-events"),
+    ("GET", "/api/live-events/stream"),
+    ("GET", "/docs"),
+    ("GET", "/openapi.json"),
+    ("POST", "/api/analyze"),
+])
+def test_judges_cannot_access_other_private_endpoints(monkeypatch, method, path):
+    monkeypatch.setenv("SAFEHEAL_JUDGE_USERNAME", "judges")
+    monkeypatch.setenv("SAFEHEAL_JUDGE_PASSWORD", "judge-only-long-password-456")
+    headers = credentials("judges", "judge-only-long-password-456")
+    # /api/analyze is public only while AI_MODE=mock; in live mode it is private.
+    monkeypatch.setenv("AI_MODE", "live")
+    with TestClient(app) as client:
+        response = client.request(method, path, headers=headers)
+    assert response.status_code == 403
+
+
+def test_unconfigured_judge_credentials_do_not_work():
+    with TestClient(app) as client:
+        response = client.get(
+            "/web/unlock",
+            headers=credentials("judges", "judge-only-long-password-456"),
+        )
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize("username,password", [
+    ("judges", ""),
+    ("", "judge-only-long-password-456"),
+    ("judges", "short"),
+    ("demo", "judge-only-long-password-456"),
+])
+def test_invalid_judge_configuration_fails_closed(monkeypatch, username, password):
+    monkeypatch.setenv("SAFEHEAL_JUDGE_USERNAME", username)
+    monkeypatch.setenv("SAFEHEAL_JUDGE_PASSWORD", password)
+    with pytest.raises(RuntimeError, match="JUDGE"):
+        with TestClient(app):
+            pass
+
+
+def test_judge_can_run_only_fixed_synthetic_real_demo(monkeypatch):
+    monkeypatch.setenv("SAFEHEAL_JUDGE_USERNAME", "judges")
+    monkeypatch.setenv("SAFEHEAL_JUDGE_PASSWORD", "judge-only-long-password-456")
+    monkeypatch.setenv("SAFEHEAL_ALLOW_LIVE_DEMO", "true")
+    monkeypatch.setenv("NEBIUS_API_KEY", "dummy-not-real")
+    monkeypatch.setenv("NEBIUS_MODEL", "test-model")
+    captured = []
+
+    def fake_analysis(dockerfile, logs, settings):
+        assert settings.mode == "live"
+        assert "EXPOSE 22" in dockerfile
+        assert any(e.get("event_type") == "PORT_SCAN" for e in logs)
+        captured.append(True)
+        return {
+            "status": "completed", "findings": [], "correlations": [],
+            "patch": {"patched_dockerfile": "", "diff": "", "summary": ""},
+            "ai": {"source": "nebius", "error": None},
+        }
+
+    monkeypatch.setattr("webapp.public.analyze_evidence", fake_analysis)
+    headers = credentials("judges", "judge-only-long-password-456")
+    with TestClient(app) as client:
+        result = client.post(
+            "/web/team-nebius-demo", headers={**headers, "Origin": "https://testserver"}
+        )
+        private = client.get("/api/live-events", headers=headers)
+    assert result.status_code == 200
+    assert result.json()["ai"]["source"] == "nebius"
+    assert result.json()["response"]["mode"] == "simulation"
+    assert captured == [True]
+    assert private.status_code == 403
+
+
+def test_judge_live_route_denies_cross_origin(monkeypatch):
+    monkeypatch.setenv("SAFEHEAL_JUDGE_USERNAME", "judges")
+    monkeypatch.setenv("SAFEHEAL_JUDGE_PASSWORD", "judge-only-long-password-456")
+    monkeypatch.setenv("SAFEHEAL_ALLOW_LIVE_DEMO", "true")
+    monkeypatch.setenv("NEBIUS_API_KEY", "dummy-not-real")
+    monkeypatch.setenv("NEBIUS_MODEL", "test-model")
+    with TestClient(app) as client:
+        response = client.post(
+            "/web/team-nebius-demo",
+            headers={
+                **credentials("judges", "judge-only-long-password-456"),
+                "Origin": "https://attacker.example",
+            },
+        )
+    assert response.status_code == 403
 
 
 def test_anonymous_public_probe_is_harmless():
