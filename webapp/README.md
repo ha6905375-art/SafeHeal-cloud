@@ -5,7 +5,7 @@ This folder contains the working SafeHeal Cloud browser dashboard and the FastAP
 ## What it does
 
 - Displays Overview, AI Investigation, Docker Security, Threat Monitoring, Live Attack Feed, Reports and Settings.
-- Loads a bundled vulnerable Dockerfile with synthetic attack logs for a repeatable demo.
+- Loads a bundled vulnerable Dockerfile and **Classic** synthetic event logs (3 events) for a repeatable demo; the AI investigation explicitly labels this evidence and selects Classic automatically, even if the monitoring explorer previously displayed Extended (16 independent synthetic events).
 - Shows findings, log correlations, a proposed Dockerfile, diff and independent static validation.
 - Exports the investigation report as JSON and the proposed patch for inspection; neither is executed.
 - Shows a sanitized, limited HTTP suspicious-path feed, not a full SIEM.

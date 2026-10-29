@@ -37,6 +37,8 @@ The **public demo is free and requires no login**:
 3. Review evidence-grounded findings, security-event correlations, the proposed Dockerfile patch, its diff, and the original/patch static checks.
 4. Export a JSON investigation report or proposed Dockerfile if desired.
 
+**Bundled evidence:** The public mock analysis and authenticated real Nemotron demonstration both use the server-side **Classic** scenario (3 synthetic events). **Extended** (16 events) remains a separate Threat Monitoring preview and is not analyzed by the bundled endpoints. Clicking **Load Classic demo Dockerfile + logs** synchronizes the explorer to Classic; investigation results and exported JSON identify their evidence source.
+
 **Public results use `AI_MODE=mock`**, a rule-based test pipeline. They are not presented as real Nemotron reasoning. The bundled demonstration runs via `GET /web/demo-analysis`, where the server loads the synthetic evidence directly; this avoids HTML `403 Blocked` responses sometimes returned by hosting security gateways for intentionally dangerous-looking multipart uploads.
 
 **Custom uploads** use `POST /api/analyze` with a file named `Dockerfile` and optional JSON logs. Hosting-edge protection can still block some uploads.
