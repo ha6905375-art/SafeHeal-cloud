@@ -1,117 +1,70 @@
-# SafeHeal Cloud — Free Render hosting (judges demo)
+# SafeHeal Cloud — Render free-hosted demo
 
-**Do not deploy `webapp.run:app` on the internet.** It is designed for localhost
-and intentionally rejects nonlocal clients. Use `webapp.public:app` instead.
-The homepage, bundled demo data, **mock analysis**, and anonymized live event
-summaries are open to everyone. Real Nebius analysis and private event APIs
-require a password. Analyses are throttled per process and hour.
+**Public site:** https://safeheal-cloud.onrender.com  
+**GitHub deployment branch:** `feature/render-deployment`  
+**App entry point:** `webapp.public:app`. **Never expose `webapp.run:app` to the internet**; it is localhost-only.
 
-## Free hosting and URL
+## Setup on Render
 
-Render's Free web service hosts FastAPI plus the frontend under **one URL**.
-Choose the service name `safeheal-cloud`; the URL will usually be
-`https://safeheal-cloud.onrender.com` *if available*. Render may require
-another name if it is already registered. No purchased domain is needed.
+Create a **Web Service** connected to `ywnu/SafeHeal-Cloud` and choose:
 
-Free Render services sleep after about 15 minutes without traffic, and the
-next visit can take a minute to wake them up. The in-memory live events reset
-when the service restarts. This is a hackathon demo, not persistent monitoring.
+| Setting | Value |
+|---|---|
+| Name | `safeheal-cloud` (if the name is available) |
+| Runtime | Python 3 |
+| Branch | `feature/render-deployment` |
+| Region | Frankfurt |
+| Root Directory | Empty |
+| Compute | **Free ($0/month)** |
+| Build Command | `pip install -r backend/requirements.txt` |
+| Start Command | `uvicorn webapp.public:app --host 0.0.0.0 --port $PORT` |
+| Health Check | `/api/health` (if configured) |
 
-## Deploy from GitHub
+### Environment variables (server-side only)
 
-1. Sign in to https://dashboard.render.com with GitHub.
-2. Choose **New → Web Service**, connect `ywnu/SafeHeal-Cloud`.
-3. Choose branch `feature/render-deployment` (or the reviewed merge target).
-4. Set **Name** to `safeheal-cloud`, **Language** to Python 3, **Instance** to Free.
-5. Set **Build command** to `pip install -r backend/requirements.txt`.
-6. Set **Start command** to
-   `uvicorn webapp.public:app --host 0.0.0.0 --port $PORT`.
-7. Set **Health check path** to `/api/health`.
-8. Add environment variables:
-   - `PYTHON_VERSION=3.11.11`
-   - `SAFEHEAL_DEMO_PASSWORD` = a unique strong secret of at least 12 characters,
-     entered in Render's secret environment variables, never committed to Git.
-     This remains required to protect real AI, even when public pages are open.
-   - `AI_MODE=mock` (no Nebius token consumption while preparing).
-   - `SAFEHEAL_MAX_ANALYSES_PER_HOUR=8` (optional; default is 8).
-9. Deploy and open the resulting URL in an **incognito window**: it must show
-   the homepage **without any login popup**. Cached Basic Auth credentials in
-   your normal browser can make this hard to verify.
-10. Check `/api/health`, homepage, Load demo Dockerfile + logs, mock
-    investigation, public anonymized live events, and the harmless test signal.
-11. For a *private* team-only test, visit `/web/unlock` and use username
-    **demo** plus the configured secret to unlock protected endpoints.
+| Variable | Value / note |
+|---|---|
+| `PYTHON_VERSION` | `3.11.11` |
+| `AI_MODE` | **`mock` — keep this value for the public website** |
+| `SAFEHEAL_DEMO_PASSWORD` | Unique private password of at least 12 characters (required at startup) |
+| `SAFEHEAL_DEMO_USERNAME` | Optional, defaults to `demo` |
+| `NEBIUS_API_KEY` | Secret API key; needed for private real AI only |
+| `NEBIUS_MODEL` | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` |
+| `SAFEHEAL_ALLOW_LIVE_DEMO` | `true` only when the team wants to enable private real inference |
+| `SAFEHEAL_MAX_ANALYSES_PER_HOUR` | Optional public/mock cap; default 40/hour in mock mode |
+| `SAFEHEAL_MAX_LIVE_ANALYSES_PER_HOUR` | Optional private live cap; default 2/hour |
 
-You can alternatively use the included `render.yaml` Blueprint. Add the
-password to the Blueprint environment settings before completing deployment.
+These limits are **in-memory and per process**; they are not billing guarantees. Rotate exposed secrets, keep all keys out of GitHub and frontend JavaScript, and consider provider-side limits on Nebius credit spending.
 
-## Switch to real Nebius inference only when ready
+## Test the public site (no Nebius credits)
 
-In Render's **Environment** page, add:
-- `AI_MODE=live`
-- `NEBIUS_API_KEY` = your actual secret API key (server-side only)
-- `NEBIUS_MODEL=nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
+After Render shows **Live**, open the URL in an **incognito window**. It should show the dashboard without login.
 
-Visit `/web/unlock` first and log in as **demo**, then return to the dashboard.
-Without private credentials, POST `/api/analyze` returns HTTP 401 when
-`AI_MODE=live`; public visitors cannot spend Nebius credits.
-Redeploy and perform *one* authorized analysis; verify `ai.source = nebius`.
-The website hosting can be free, **but Nebius inference uses your existing
-credits and may incur charges depending on the account**. Restrict the
-password to judges/team, monitor credits, and set a provider-side spending cap
-if available. Do not print or expose the key to browsers.
+1. Go to **AI Investigation**.
+2. Select **Load demo Dockerfile + logs**, then **Start AI Investigation**.
+3. Check `COMPLETED`, `MOCK · ANALYZED`, findings, correlations and separate static reviews.
+4. Review the other pages and export the synthetic investigation report if desired.
 
-The simple Basic Auth/password and process-local request limit are suitable
-for a short HTTPS-only public mock / private live demo, not a replacement for production auth,
-distributed rate limits, audit logs, or a reliable billing cap.
+The public demo runs a **server-side** `GET /web/demo-analysis` and does not upload the intentionally risky example through the browser. Hosting-edge protection can still return HTML `403 Blocked` for *custom* multipart uploads to `POST /api/analyze`. Do not bypass hosting security to force uploads.
 
-Do not remove the live-mode authentication check. The public mock endpoint
-is rate-limited, but the process-local limit resets whenever the server restarts.
-A provider-side budget cap is still recommended before using Nebius live.
+## Test the real private Nemotron demo
 
-## Public mock upload 403 from the hosting edge
+**Keep global `AI_MODE=mock`.** The separate private endpoint forces a real inference for authorized team members while leaving public/mock requests free.
 
-Some security gateways block multipart Dockerfile uploads that contain
-intentional insecure demo secrets or exploitation examples, returning
-HTML **403 Blocked** before the backend sees the request.
+1. Confirm `SAFEHEAL_ALLOW_LIVE_DEMO=true`, `NEBIUS_API_KEY`, `NEBIUS_MODEL` and a strong `SAFEHEAL_DEMO_PASSWORD` in Render.
+2. Visit https://safeheal-cloud.onrender.com/web/unlock and sign in using the private credentials (username defaults to `demo`).
+3. Return to **AI Investigation**, select **Private Team Access → Run real Nemotron**, and accept the confirmation **once**.
+4. Examine `status`, `ai.source` and the **Proposed patch** review independently. A `COMPLETED` model response does not prove its patch is valid.
+5. Export the result for internal review. Avoid sharing sensitive values or raw authorization headers.
 
-- Click **Load demo Dockerfile + logs**, then **Start AI Investigation**.
-  The site uses `GET /web/demo-analysis` for built-in mock evidence.
-  The Python backend loads its bundled fixture files directly, so the
-  browser does not upload those suspicious example strings to the edge.
-- This endpoint runs only if `AI_MODE=mock`; it is disabled in live mode
-  **even for private authenticated users**.
-- Custom files continue to use `POST /api/analyze`, and a hosting security
-  gateway can still block uploads. The site now gives a readable error
-  in that case; do not disable hosting protections for public uploads.
-- Results from the bundled server-side case may have a different event
-  count than the currently selected extended scenario in the dashboard.
+The private request has **no browser-uploaded Dockerfile body**; the server loads bundled synthetic examples directly. Real inference can **consume Nebius credits**. The per-process two-calls/hour default is *not* a provider-side spending cap.
 
-## Optional private live Nebius demo while keeping public mock
+## Hosting constraints and verification
 
-For the actual online NVIDIA/Nebius showcase, keep `AI_MODE=mock` so the
-public website continues to work with no credentials or paid inference.
+The Free instance may **sleep after inactivity**, which can delay the first request. The event queue resets on restart; the public feed redacts IP addresses and endpoints.
 
-In Render > Environment add these server-side variables:
-- `NEBIUS_API_KEY` = your existing secret key (never put it in GitHub or JavaScript)
-- `NEBIUS_MODEL=nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
-- `SAFEHEAL_ALLOW_LIVE_DEMO=true` (explicit opt-in; enables the team-only route)
-- `SAFEHEAL_MAX_LIVE_ANALYSES_PER_HOUR=2` (optional; per-worker only, **not** a billing cap)
+GitHub Actions runs offline with `AI_MODE=mock`. On October 29, 2026, **401 tests passed, 2 skipped, 1 warning**. Manual browser tests confirmed both the public mock and a private real Nemotron call. A real reply initially included malformed escaped Dockerfile line breaks; the conflicting static PASS display was fixed in code and regression-tested, but **the originally exported live patch should not be described as passing**.
 
-Before testing, confirm your Nebius account has sufficient credits and set
-a provider-side budget cap if available.
+No proposed Dockerfile has been built or run, no patch was applied, and no real firewall blocking was performed. HTTP Basic and process-local limits are intended for a short hackathon demo, not production use.
 
-Open `https://safeheal-cloud.onrender.com/web/unlock` and sign in using
-username `demo` and your private password, then return to AI Investigation.
-Choose **Team only: run real Nemotron** and explicitly confirm. The request
-is a password-protected POST with *no user-uploaded body*, and the server
-loads only its fixed synthetic evidence. This reduces false 403 blocks
-from security gateways on the intentional insecure Dockerfile strings.
-
-The ordinary **Start AI investigation** button remains public and mock.
-The two analysis modes do not mutate global `AI_MODE`; their results share
-the same dashboard and static patch review layout.
-
-Only the private Nebius button consumes credits. The local in-memory
-rate limit is not persistent across server restarts; keep the password
-private and control billing on the provider side.
+See [README.md](README.md) and [contracts/api_contract.md](contracts/api_contract.md) for project and API details.
