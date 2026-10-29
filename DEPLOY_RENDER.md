@@ -86,3 +86,32 @@ HTML **403 Blocked** before the backend sees the request.
   in that case; do not disable hosting protections for public uploads.
 - Results from the bundled server-side case may have a different event
   count than the currently selected extended scenario in the dashboard.
+
+## Optional private live Nebius demo while keeping public mock
+
+For the actual online NVIDIA/Nebius showcase, keep `AI_MODE=mock` so the
+public website continues to work with no credentials or paid inference.
+
+In Render > Environment add these server-side variables:
+- `NEBIUS_API_KEY` = your existing secret key (never put it in GitHub or JavaScript)
+- `NEBIUS_MODEL=nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
+- `SAFEHEAL_ALLOW_LIVE_DEMO=true` (explicit opt-in; enables the team-only route)
+- `SAFEHEAL_MAX_LIVE_ANALYSES_PER_HOUR=2` (optional; per-worker only, **not** a billing cap)
+
+Before testing, confirm your Nebius account has sufficient credits and set
+a provider-side budget cap if available.
+
+Open `https://safeheal-cloud.onrender.com/web/unlock` and sign in using
+username `demo` and your private password, then return to AI Investigation.
+Choose **Team only: run real Nemotron** and explicitly confirm. The request
+is a password-protected POST with *no user-uploaded body*, and the server
+loads only its fixed synthetic evidence. This reduces false 403 blocks
+from security gateways on the intentional insecure Dockerfile strings.
+
+The ordinary **Start AI investigation** button remains public and mock.
+The two analysis modes do not mutate global `AI_MODE`; their results share
+the same dashboard and static patch review layout.
+
+Only the private Nebius button consumes credits. The local in-memory
+rate limit is not persistent across server restarts; keep the password
+private and control billing on the provider side.

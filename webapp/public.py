@@ -16,6 +16,7 @@ import json
 import os
 import secrets
 import time
+from dataclasses import replace
 from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,14 +24,19 @@ from threading import Lock
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from starlette.concurrency import run_in_threadpool
 from ai.config import get_settings, load_dotenv
+from ai.service import analyze_evidence
 from backend.live_events import get_events_after
 from backend.main import app as backend_app
+from backend.simulation import simulate_response
+from backend.validator import validate_dockerfile
 
 load_dotenv()
 ASSETS = Path(__file__).resolve().parent
 REPO = ASSETS.parent
 _attempts: deque[float] = deque()
+_live_attempts: deque[float] = deque()
 _attempts_lock = Lock()
 WINDOW_SECONDS = 3600
 
@@ -69,6 +75,22 @@ def _allow_analysis() -> bool:
         if len(_attempts) >= limit:
             return False
         _attempts.append(now)
+        return True
+
+
+def _allow_live_analysis() -> bool:
+    """Separate small rate limit for paid inference (per worker, not a budget cap)."""
+    try:
+        limit = max(1, min(5, int(os.getenv("SAFEHEAL_MAX_LIVE_ANALYSES_PER_HOUR", "2"))))
+    except ValueError:
+        limit = 2
+    now = time.monotonic()
+    with _attempts_lock:
+        while _live_attempts and _live_attempts[0] <= now - WINDOW_SECONDS:
+            _live_attempts.popleft()
+        if len(_live_attempts) >= limit:
+            return False
+        _live_attempts.append(now)
         return True
 
 
@@ -136,6 +158,24 @@ async def protect_public_demo(request: Request, call_next):
                 headers={"Cache-Control": "no-store"},
             )
 
+    if request.method == "POST" and request.url.path == "/web/team-nebius-demo":
+        # Require a genuine same-origin browser request as well as Basic Auth.
+        # A cross-site form must not trigger an inference using cached credentials.
+        origin = request.headers.get("origin")
+        if origin and origin != f"https://{request.headers.get('host', '')}":
+            return JSONResponse(status_code=403, content={"detail": "Invalid request origin"})
+        if os.getenv("SAFEHEAL_ALLOW_LIVE_DEMO", "").lower() not in {"1", "true"}:
+            return JSONResponse(status_code=503, content={"detail": "Team Nebius demo is disabled"})
+        settings = get_settings()
+        if not settings.api_key or not settings.model:
+            return JSONResponse(status_code=503, content={"detail": "Nebius server configuration is incomplete"})
+        if not _allow_live_analysis():
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Team live analysis quota reached. Try again later."},
+                headers={"Cache-Control": "no-store"},
+            )
+
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -190,6 +230,46 @@ async def demo_analysis():
             file=io.BytesIO(logs),
         ),
     )
+
+
+@app.post("/web/team-nebius-demo", include_in_schema=False)
+async def team_nebius_demo():
+    """Team-only real Nebius inference on fixed synthetic evidence.
+
+    There is intentionally no upload body here; the hosting edge may reject
+    the insecure demonstration Dockerfile and attack strings. The ordinary
+    public /web/demo-analysis endpoint remains mock-only.
+    """
+    dockerfile_text = (REPO / "security" / "vulnerable.Dockerfile").read_text(encoding="utf-8")
+    logs = json.loads((REPO / "security" / "attack_logs.json").read_text(encoding="utf-8"))
+
+    # Never change the process-wide AI_MODE; that would race with public
+    # requests. Inject an immutable explicit live settings object instead.
+    settings = replace(get_settings(), mode="live")
+    result = await run_in_threadpool(analyze_evidence, dockerfile_text, logs, settings)
+
+    original_review = validate_dockerfile(dockerfile_text)
+    result["tests"] = {
+        "status": "completed",
+        "passed": original_review["passed"],
+        "details": original_review["details"],
+    }
+    patch = result.get("patch", {}).get("patched_dockerfile", "")
+    if isinstance(patch, str) and patch.strip():
+        patch_review = validate_dockerfile(patch)
+        result["tests"]["proposed_patch"] = {
+            "status": "static_review_only",
+            "passed": patch_review["passed"],
+            "details": patch_review["details"],
+        }
+        if not patch_review["passed"] and result.get("ai", {}).get("patch_status") == "proposed_not_validated":
+            result["ai"]["patch_status"] = "proposed_failed_static_review"
+            result["ai"].setdefault("warnings", []).append(
+                "Backend static review found issues in the proposed Dockerfile."
+            )
+
+    result["response"] = simulate_response(logs)
+    return result
 
 
 @app.get("/web/live-events", include_in_schema=False)

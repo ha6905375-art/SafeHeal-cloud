@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.live_events import record_event
-from webapp.public import app, _attempts, _attempts_lock
+from webapp.public import app, _attempts, _live_attempts, _attempts_lock
 
 
 def credentials(username="demo", password="a-long-demo-password-123"):
@@ -21,6 +21,10 @@ def secure_test_env(monkeypatch):
     monkeypatch.setenv("AI_MODE", "mock")
     with _attempts_lock:
         _attempts.clear()
+        _live_attempts.clear()
+    monkeypatch.delenv("SAFEHEAL_ALLOW_LIVE_DEMO", raising=False)
+    monkeypatch.delenv("NEBIUS_API_KEY", raising=False)
+    monkeypatch.delenv("NEBIUS_MODEL", raising=False)
 
 
 def test_anonymous_health_is_available():
@@ -163,3 +167,95 @@ def test_missing_password_fails_closed(monkeypatch):
     with pytest.raises(RuntimeError, match="SAFEHEAL_DEMO_PASSWORD"):
         with TestClient(app):
             pass
+
+
+def test_team_nebius_demo_requires_auth():
+    with TestClient(app) as client:
+        response = client.post("/web/team-nebius-demo")
+    assert response.status_code == 401
+
+
+def test_team_nebius_demo_fails_closed_when_not_enabled():
+    with TestClient(app) as client:
+        response = client.post("/web/team-nebius-demo", headers=credentials())
+    assert response.status_code == 503
+    assert "disabled" in response.json()["detail"]
+
+
+def test_team_nebius_demo_requires_configuration(monkeypatch):
+    monkeypatch.setenv("SAFEHEAL_ALLOW_LIVE_DEMO", "true")
+    with TestClient(app) as client:
+        response = client.post("/web/team-nebius-demo", headers=credentials())
+    assert response.status_code == 503
+    assert "configuration" in response.json()["detail"]
+
+
+def test_team_nebius_demo_rejects_cross_origin(monkeypatch):
+    monkeypatch.setenv("SAFEHEAL_ALLOW_LIVE_DEMO", "true")
+    monkeypatch.setenv("NEBIUS_API_KEY", "dummy-not-real")
+    monkeypatch.setenv("NEBIUS_MODEL", "test-model")
+    with TestClient(app) as client:
+        response = client.post(
+            "/web/team-nebius-demo",
+            headers={**credentials(), "Origin": "https://evil.example"},
+        )
+    assert response.status_code == 403
+
+
+def test_team_nebius_demo_injects_live_settings_without_mutating_public_mode(monkeypatch):
+    monkeypatch.setenv("SAFEHEAL_ALLOW_LIVE_DEMO", "true")
+    monkeypatch.setenv("NEBIUS_API_KEY", "dummy-not-real")
+    monkeypatch.setenv("NEBIUS_MODEL", "test-model")
+    modes = []
+
+    def fake_analyze(dockerfile, logs, settings):
+        modes.append(settings.mode)
+        assert "EXPOSE 22" in dockerfile
+        assert any(event["event_type"] == "PORT_SCAN" for event in logs)
+        return {
+            "status": "completed",
+            "findings": [],
+            "correlations": [],
+            "patch": {
+                "patched_dockerfile": "FROM python:3.9-slim\\nUSER appuser\\nEXPOSE 5000",
+                "summary": "Test stub",
+                "diff": "",
+            },
+            "ai": {
+                "source": "nebius",
+                "model": "test-model",
+                "error": None,
+                "patch_status": "proposed_not_validated",
+            },
+        }
+
+    monkeypatch.setattr("webapp.public.analyze_evidence", fake_analyze)
+    with TestClient(app) as client:
+        live = client.post("/web/team-nebius-demo", headers=credentials())
+        public = client.get("/web/demo-analysis")
+    assert live.status_code == 200
+    assert live.json()["ai"]["source"] == "nebius"
+    assert live.json()["tests"]["proposed_patch"]["status"] == "static_review_only"
+    assert live.json()["response"]["mode"] == "simulation"
+    assert modes == ["live"]
+    assert public.status_code == 200
+    assert public.json()["ai"]["source"] == "mock"
+
+
+def test_team_nebius_demo_uses_separate_rate_limit(monkeypatch):
+    monkeypatch.setenv("SAFEHEAL_ALLOW_LIVE_DEMO", "true")
+    monkeypatch.setenv("NEBIUS_API_KEY", "dummy-not-real")
+    monkeypatch.setenv("NEBIUS_MODEL", "test-model")
+    monkeypatch.setenv("SAFEHEAL_MAX_LIVE_ANALYSES_PER_HOUR", "1")
+    monkeypatch.setattr("webapp.public.analyze_evidence", lambda *args: {
+        "status": "ai_error", "findings": [], "correlations": [],
+        "patch": {"patched_dockerfile": "", "summary": "", "diff": ""},
+        "ai": {"source": "nebius", "error": {"code": "test_error", "message": "fake"}, "patch_status": "none"},
+    })
+    with TestClient(app) as client:
+        first = client.post("/web/team-nebius-demo", headers=credentials())
+        second = client.post("/web/team-nebius-demo", headers=credentials())
+        public = client.get("/web/demo-analysis")
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert public.status_code == 200
