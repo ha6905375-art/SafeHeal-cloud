@@ -1,0 +1,27 @@
+# The public SafeHeal showcase only. Never build AI-proposed Dockerfiles automatically.
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    AI_MODE=mock \
+    SAFEHEAL_ALLOW_LIVE_DEMO=false
+
+WORKDIR /app
+
+COPY backend/requirements.txt backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt \
+    && useradd --create-home --shell /usr/sbin/nologin appuser
+
+COPY --chown=appuser:appuser ai/ ai/
+COPY --chown=appuser:appuser backend/ backend/
+COPY --chown=appuser:appuser webapp/ webapp/
+COPY --chown=appuser:appuser security/ security/
+COPY --chown=appuser:appuser contracts/ contracts/
+
+USER appuser
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()" || exit 1
+
+CMD ["uvicorn", "webapp.public:app", "--host", "0.0.0.0", "--port", "8000"]

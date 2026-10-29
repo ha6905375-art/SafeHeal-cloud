@@ -1,0 +1,19 @@
+# Never send credentials, repos, caches or private local data to Docker's build context.
+.git
+.github
+.env
+.env.*
+!.env.example
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.DS_Store
+.idea
+.vscode
+e2e
+tests
+docs
+*.log

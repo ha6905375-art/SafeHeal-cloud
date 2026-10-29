@@ -104,7 +104,7 @@ curl.exe -sS -X POST "http://127.0.0.1:8000/api/analyze" `
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-GitHub Actions installs the requirements from scratch on **Ubuntu and Windows (Python 3.11)**, runs `python -m pip check`, then runs tests offline with `AI_MODE=mock`. Before adding the Windows job, the deployment branch passed **401 tests, 2 skipped, 1 warning** on Ubuntu (October 29, 2026). The public mock site and private Nebius route were exercised manually in a browser; automated full-browser end-to-end testing has not yet been added.
+GitHub Actions installs the requirements from scratch on **Ubuntu and Windows (Python 3.11)**, runs `python -m pip check`, then runs tests offline with `AI_MODE=mock`. Before adding the Windows job, the deployment branch passed **401 tests, 2 skipped, 1 warning** on Ubuntu (October 29, 2026). The public mock site and private Nebius route were exercised manually in a browser. CI additionally runs a **real headless Chromium browser E2E** for public mock analysis, report download and private-route authentication (no Nebius credits). A separate Docker Compose smoke job builds the **demo server image** and probes health/mock routes. Neither job executes AI-proposed patches.
 
 The AI evaluator can be run in mock mode without credits:
 
@@ -122,5 +122,28 @@ Any explicit live evaluation or inference may consume Nebius credits.
 - **Free Render may sleep** after inactivity; the first request after sleep can be slower.
 - Process-local request throttling and HTTP Basic credentials are demo safeguards, not production-grade authentication, durable audit logging, or spending limits.
 - Hosting security may reject some custom uploads containing intentionally exploit-like examples.
-- **Direct Python runtime and test dependencies are pinned** to versions exercised in GitHub CI (Python 3.11); transitive packages are still resolver-selected (not a full hash-locked environment). Automated browser E2E tests and optional Docker build verification remain follow-up work.
+- **Direct Python runtime and test dependencies are pinned** to versions exercised in GitHub CI (Python 3.11); transitive packages are still resolver-selected (not a full hash-locked environment). Browser E2E and **demo service image** Docker Compose smoke checks are included in CI; building or running the **AI-proposed patch image** remains out of scope. The browser E2E covers the critical public workflow, not all UI/assistive-technology combinations.
 - **`feature/render-deployment` has not been merged into `main`.** Coordinate the final merge with the team.
+
+## Optional local Docker Compose demo
+
+The included `Dockerfile.web` and `compose.yaml` **build only the SafeHeal website**, not any AI-generated patch. They start the **mock-only** service on the local loopback interface (`127.0.0.1:8000`) and create an unprivileged application user. The app container has dropped Linux capabilities, a read-only root filesystem and no Nebius token.
+
+On Windows PowerShell, with Docker Desktop running, set a unique password **locally in your shell**:
+
+```powershell
+$env:SAFEHEAL_DEMO_PASSWORD = "replace-with-your-own-strong-unique-password"
+docker compose up --build -d
+```
+
+Open http://127.0.0.1:8000 . The public mock demo needs no browser login. To stop: `docker compose down`. **Do not put an actual Nebius key into Compose**; real inference remains disabled here by default. The development-only Compose password is not committed to source control. CI verifies Compose startup, health, public mock analysis, and refusal of unauthorized private access.
+
+To repeat the **real Chromium browser E2E** locally (Python 3.11 and Chromium required), run:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-e2e.txt
+.\.venv\Scripts\python.exe -m playwright install chromium
+.\.venv\Scripts\python.exe e2e/browser_smoke.py
+```
+
+This starts a temporary local mock web server, checks the browser flow and downloaded JSON, and shuts it down. It never uses Nebius credits.

@@ -70,3 +70,9 @@ GitHub Actions runs offline with `AI_MODE=mock`. On October 29, 2026, **401 test
 No proposed Dockerfile has been built or run, no patch was applied, and no real firewall blocking was performed. HTTP Basic and process-local limits are intended for a short hackathon demo, not production use.
 
 See [README.md](README.md) and [contracts/api_contract.md](contracts/api_contract.md) for project and API details.
+
+## Optional local Docker Compose verification
+
+`Dockerfile.web` and `compose.yaml` are for **local mock-only** verification, not Render (which still uses `uvicorn webapp.public:app` directly). Bindings are restricted to `127.0.0.1:8000`, and the app runs as an unprivileged user with a read-only root filesystem and dropped capabilities. Set a private `SAFEHEAL_DEMO_PASSWORD` in your shell, then `docker compose up --build -d`; visit http://127.0.0.1:8000 . Run `docker compose down` afterward. **Never inject real Nebius API keys into this local Compose configuration.**
+
+GitHub Actions also runs an isolated **Chromium** browser flow and an isolated **Docker Compose** health/mock smoke test without Nebius; these jobs do not build or run model-proposed patches.
