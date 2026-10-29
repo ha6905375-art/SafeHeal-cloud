@@ -1,0 +1,45 @@
+name: Publish safe public demo screenshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-demo-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    name: Chromium mock screenshot (no Nebius; no private data)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      AI_MODE: mock
+      SAFEHEAL_ALLOW_LIVE_DEMO: 'false'
+      SAFEHEAL_CAPTURE_PREVIEW: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install browser and mock runtime
+        run: |
+          python -m pip install -r backend/requirements.txt -r requirements-e2e.txt
+          python -m playwright install --with-deps chromium
+      - name: Verify public mock and capture actual Chromium viewport
+        run: python e2e/browser_smoke.py
+      - name: Commit verified screenshot to main
+        run: |
+          test -s assets/demo-preview.png
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/demo-preview.png
+          git diff --cached --quiet && exit 0
+          git commit -m "docs: publish verified public mock demo screenshot"
+          git pull --rebase origin main
+          git push origin HEAD:main

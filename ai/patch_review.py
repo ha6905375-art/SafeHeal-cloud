@@ -122,6 +122,22 @@ def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) ->
                        "message": "Patch contains literal '\\n' sequences instead of line breaks, "
                                   "so it is not a valid multi-line Dockerfile."})
 
+    # Reject unknown/garbled Dockerfile directives that could otherwise slip
+    # through root/secret checks and be mislabeled a static PASS. This is still
+    # a text-based check, not a full Dockerfile parser or a Docker build.
+    joined = re.sub(r"\\\r?\n\s*", " ", patched)
+    for line in joined.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        match = INSTRUCTION_RE.match(stripped)
+        if not match:
+            issues.append({"code": "malformed_instruction",
+                           "message": "A Dockerfile line has no valid instruction and argument."})
+        elif match.group(1).upper() not in DOCKERFILE_INSTRUCTIONS:
+            issues.append({"code": "unknown_instruction",
+                           "message": f"Unknown Dockerfile instruction '{match.group(1)}'."})
+
     instructions = _instructions(patched)
     stage = _final_stage(instructions)
 

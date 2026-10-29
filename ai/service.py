@@ -18,7 +18,7 @@ This function is blocking (network I/O). From an async FastAPI route call it wit
 
 Literal values of secret-like ENV/ARG keys in the uploaded Dockerfile (and in the
 proposed patch) are replaced with "[REDACTED]" in every string of the returned
-result. This protects the response only; the prompt sent to the model is unchanged.
+result. For LIVE inference, recognized Dockerfile credentials are additionally masked BEFORE the prompt is sent to Nebius. Local static validation uses the original input.
 """
 
 import difflib
@@ -258,6 +258,46 @@ def _redact(value: Any, secrets: list[str]) -> Any:
     return value
 
 
+# Best-effort privacy barrier for external inference. The public deployed real
+# model route uses only fixed synthetic evidence; this is not a full DLP scanner.
+LOG_SENSITIVE_KEY_RE = re.compile(
+    r"(PASSWORD|PASSWD|SECRET|API[_-]?KEY|TOKEN|PRIVATE[_-]?KEY|AUTHORIZATION|COOKIE|CREDENTIAL)",
+    re.IGNORECASE,
+)
+INLINE_LOG_SECRET_RE = re.compile(
+    r"(?i)(\b(?:api[_-]?key|access[_-]?token|password|passwd|secret|authorization)"
+    r"\s*[:=]\s*)([^\s&;,]+)"
+)
+BEARER_RE = re.compile(r"(?i)\b(Bearer|Basic)\s+([A-Za-z0-9_./+=-]{6,})")
+
+def _mask_sensitive_logs(value: Any) -> Any:
+    """Redact credential-like log fields without rewriting event type or IP evidence."""
+    if isinstance(value, dict):
+        return {
+            key: REDACTED if LOG_SENSITIVE_KEY_RE.search(str(key))
+            else _mask_sensitive_logs(child)
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        return [_mask_sensitive_logs(child) for child in value]
+    if isinstance(value, str):
+        value = BEARER_RE.sub(lambda match: match.group(1) + " " + REDACTED, value)
+        return INLINE_LOG_SECRET_RE.sub(lambda match: match.group(1) + REDACTED, value)
+    return value
+
+
+def _safe_live_model_inputs(
+    dockerfile_text: str, attack_logs: Optional[Any],
+) -> tuple[str, Optional[Any], bool]:
+    """Only these masked copies leave the process; use original data for local reviews."""
+    secrets = sorted(_secret_values(dockerfile_text), key=len, reverse=True)
+    safe_dockerfile = _redact(dockerfile_text, secrets) if secrets else dockerfile_text
+    safe_logs = _redact(attack_logs, secrets) if secrets else attack_logs
+    safe_logs = _mask_sensitive_logs(safe_logs)
+    changed = safe_dockerfile != dockerfile_text or safe_logs != attack_logs
+    return safe_dockerfile, safe_logs, changed
+
+
 def analyze_evidence(
     dockerfile_text: str,
     attack_logs: Optional[Any] = None,
@@ -356,9 +396,18 @@ def _analyze_unredacted(
             raw = mock_model_reply(dockerfile_text, attack_logs)
             usage: dict = {}
         else:
-            reply = (client or NebiusClient(settings)).chat(
-                SYSTEM_PROMPT, build_user_prompt(dockerfile_text, attack_logs)
+            safe_dockerfile, safe_logs, redacted_before_inference = _safe_live_model_inputs(
+                dockerfile_text, attack_logs
             )
+            prompt = build_user_prompt(safe_dockerfile, safe_logs)
+            if redacted_before_inference:
+                prompt += (
+                    "\nInput privacy note: [REDACTED] represents a credential "
+                    "masked BEFORE external inference. Treat any hardcoded "
+                    "credential assignment as a finding, remove it in the "
+                    "proposed Dockerfile, and never invent its original value."
+                )
+            reply = (client or NebiusClient(settings)).chat(SYSTEM_PROMPT, prompt)
             # NebiusClient already rejects cut-off replies; this also covers injected clients.
             if reply.get("finish_reason") == "length":
                 return fail("invalid_response", "Model output was cut off (max tokens); response rejected.")

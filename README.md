@@ -24,7 +24,9 @@ The boundaries matter: the public experience is deterministic mock analysis; rea
 
 ## Demo preview
 
-A screenshot or short GIF of the real investigation workflow can be added here once a verified asset is committed to the repository. The [live demo](https://safeheal-cloud.onrender.com) is available now.
+![SafeHeal Cloud public mock AI investigation, findings and patch review](assets/demo-preview.png)
+
+*Public mock analysis — captured from a real headless Chromium run against the local web app, with **no Nebius credentials or paid inference**. The screenshot is generated and committed by [the screenshot workflow](.github/workflows/publish-demo-preview.yml) after this change reaches main. [Try the live website](https://safeheal-cloud.onrender.com).*
 
 ## What the website does
 
@@ -150,6 +152,13 @@ The AI evaluator can be run in mock mode without credits:
 ```
 
 Any explicit live evaluation or inference may consume Nebius credits.
+
+## Security review and measured evaluation
+
+- **Pre-inference credential masking:** Live Nebius prompts now mask recognized literal Dockerfile secrets and credential-like log fields *before* sending them externally; the original input stays local for static validation. This is **best-effort redaction, not certified DLP**. The hosted real-model demo is intentionally restricted to synthetic evidence; do **not** upload real production secrets.
+- **Static patch guardrails:** The two independent reviewers reject several unsafe Dockerfile patterns, including malformed escaped line breaks, unknown Dockerfile instructions, hardcoded secrets and unsafe final users. **Static PASS never proves the suggested file builds, runs, or is production-secure.** Generated Dockerfiles are not executed.
+- **Independent scheduled security checks:** [Security audit](.github/workflows/security-audit.yml) checks Python dependency vulnerabilities, the built **demo website image** and Git history for potential leaked credentials. Findings require human triage; successful unit tests do not imply all security scans are clean.
+- **Quality measurements:** `python -m ai.benchmark` runs an **offline synthetic category-level proxy benchmark** with safe and unsafe Dockerfiles, benign and unrelated logs, and prints Precision/Recall/F1. These numbers are **not Nemotron production accuracy**. An explicitly authorized live run can be performed later with `SAFEHEAL_BENCHMARK_LIVE=YES python -m ai.benchmark --live`, which consumes Nebius credits. Do not publish a live-model accuracy percentage unless that real run has actually been evaluated and reviewed.
 
 ## Limitations and remaining tasks
 
