@@ -90,7 +90,7 @@ def test_mock_classic_demo_still_proposes_patch_with_supported_python():
     assert "FROM python:3.11-slim" in result["patch"]["patched_dockerfile"]
     assert "FROM python:3.9-slim" not in result["patch"]["patched_dockerfile"]
     assert result["ai"]["patch_status"] == "proposed_not_validated"
-    assert "compatibility" in " ".join(result["limitations"]).lower()
+    assert "compatibility" in " ".join(result["ai"]["limitations"]).lower()
 
 
 def test_nemotron_system_prompt_does_not_recommend_eol_python():
