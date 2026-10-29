@@ -125,7 +125,15 @@ function wire(){icons();document.querySelectorAll('[data-page]').forEach(el=>el.
  $('pollToggle').addEventListener('click',togglePolling);$('settingsPollToggle').addEventListener('click',togglePolling);$('triggerProbe').addEventListener('click',triggerProbe);$('settingsCheck').addEventListener('click',async()=>{await checkHealth();await pollLive();refreshSettings();toast('Connection checked.')});$('reportJSON').addEventListener('click',downloadJson);$('reportDocker').addEventListener('click',downloadPatch);$('reportEvents').addEventListener('click',downloadEventLog);
  window.addEventListener('hashchange',()=>{const next=location.hash.slice(1);if(next&&next!==state.activePage)showPage(next)});
 }
-function clock(){const now=new Date();$('clock').textContent=now.toLocaleTimeString('en-GB',{hour12:false});}
+function clock(){
+  // Display browser-local time using its regional 12h/24h preference.
+  const now = new Date();
+  $('clock').textContent = now.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
 /* SafeHeal Cloud — accessible custom dropdowns (progressively enhance native selects).
    Native select elements remain the source of truth for existing filtering logic. */
 function enhanceDropdowns(){
