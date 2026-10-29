@@ -1,0 +1,44 @@
+name: CI — Python tests
+
+on:
+  push:
+    branches:
+      - main
+      - integration/frontend-ready
+      - feature/webapp-integration
+  pull_request:
+    branches:
+      - main
+      - integration/frontend-ready
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Run tests (Python 3.11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AI_MODE: mock
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run test suite without Nebius credentials
+        run: python -m pytest -q
