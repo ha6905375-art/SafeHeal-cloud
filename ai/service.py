@@ -265,11 +265,10 @@ LOG_SENSITIVE_KEY_RE = re.compile(
     re.IGNORECASE,
 )
 INLINE_LOG_SECRET_RE = re.compile(
-    r"(?i)(\\b(?:api[_-]?key|access[_-]?token|password|passwd|secret|authorization)"
-    r"\\s*[:=]\\s*[\\\"']?)([^\\s&\\\"']{4,})"
+    r"(?i)(\b(?:api[_-]?key|access[_-]?token|password|passwd|secret|authorization)"
+    r"\s*[:=]\s*[\\"']?)([^\s&\\"']{4,})"
 )
-BEARER_RE = re.compile(r"(?i)\\b(Bearer|Basic)\\s+([A-Za-z0-9_./+\\-=]{6,})")
-
+BEARER_RE = re.compile(r"(?i)\b(Bearer|Basic)\s+([A-Za-z0-9_./+=-]{6,})")
 
 def _mask_sensitive_logs(value: Any) -> Any:
     """Redact credential-like log fields without rewriting event type or IP evidence."""
@@ -403,7 +402,7 @@ def _analyze_unredacted(
             prompt = build_user_prompt(safe_dockerfile, safe_logs)
             if redacted_before_inference:
                 prompt += (
-                    "\\nInput privacy note: [REDACTED] represents a credential "
+                    "\nInput privacy note: [REDACTED] represents a credential "
                     "masked BEFORE external inference. Treat any hardcoded "
                     "credential assignment as a finding, remove it in the "
                     "proposed Dockerfile, and never invent its original value."
