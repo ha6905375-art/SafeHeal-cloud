@@ -1,0 +1,23 @@
+# Local-only, free, mock showcase; no Nebius credits or external exposure.
+# Set SAFEHEAL_DEMO_PASSWORD in your shell before running compose.
+services:
+  safeheal:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: safeheal-cloud:local-mock
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      AI_MODE: "mock"
+      SAFEHEAL_ALLOW_LIVE_DEMO: "false"
+      SAFEHEAL_DEMO_PASSWORD: "${SAFEHEAL_DEMO_PASSWORD:?Set SAFEHEAL_DEMO_PASSWORD (at least 12 characters) before running Docker Compose}"
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128

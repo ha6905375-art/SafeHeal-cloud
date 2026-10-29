@@ -1,0 +1,74 @@
+{
+  "summary": "Security misconfigurations and suspicious activity detected.",
+  "findings": [
+    {
+      "title": "Container Running as Root",
+      "severity": "HIGH",
+      "evidence": "No USER instruction is present in the Dockerfile",
+      "description": "The Dockerfile never switches to a non-root user, so the application process runs as root by default inside the container.",
+      "recommendation": "Create a dedicated non-root user and switch to it with a USER instruction.",
+      "id": "F-001"
+    },
+    {
+      "title": "Unnecessary SSH Service",
+      "severity": "HIGH",
+      "evidence": "openssh-server installed; EXPOSE 22",
+      "description": "Unnecessary SSH components increase attack surface.",
+      "recommendation": "Remove SSH installation and EXPOSE 22.",
+      "id": "F-002"
+    },
+    {
+      "title": "Hardcoded Credential",
+      "severity": "HIGH",
+      "evidence": "AWS_SECRET_KEY assigned in ENV",
+      "description": "A credential-like value is hardcoded.",
+      "recommendation": "Remove hardcoded credentials and use runtime secrets.",
+      "id": "F-003"
+    },
+    {
+      "title": "Debug Mode Enabled",
+      "severity": "MEDIUM",
+      "evidence": "DEBUG_MODE=true",
+      "description": "Debug settings may expose sensitive information.",
+      "recommendation": "Disable debug mode in production.",
+      "id": "F-004"
+    }
+  ],
+  "correlations": [
+    {
+      "event_type": "PORT_SCAN",
+      "source_ip": "198.51.100.45",
+      "related_finding_ids": [
+        "F-002"
+      ],
+      "explanation": "Possible relationship to the configuration weakness; no confirmed compromise."
+    },
+    {
+      "event_type": "AUTH_ATTEMPT",
+      "source_ip": "198.51.100.45",
+      "related_finding_ids": [
+        "F-002"
+      ],
+      "explanation": "Possible relationship to the configuration weakness; no confirmed compromise."
+    },
+    {
+      "event_type": "EXPLOITATION_ATTEMPT",
+      "source_ip": "198.51.100.45",
+      "related_finding_ids": [
+        "F-004"
+      ],
+      "explanation": "Possible relationship to the configuration weakness; no confirmed compromise."
+    }
+  ],
+  "patch": {
+    "patched_dockerfile": "FROM python:3.11-slim\nRUN groupadd -r appuser && useradd -r -g appuser appuser\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY --chown=appuser:appuser . .\nUSER appuser\nEXPOSE 5000\nCMD [\"python\", \"app.py\"]",
+    "diff": "",
+    "summary": "Proposed Dockerfile security improvements."
+  },
+  "limitations": [
+    "Synthetic test data; no live Nemotron evaluation."
+  ],
+  "next_steps": [
+    "Review and validate the proposed patch."
+  ]
+}

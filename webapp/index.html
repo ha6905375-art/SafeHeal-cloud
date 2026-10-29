@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d19">
+  <meta name="description" content="SafeHeal Cloud | Explainable AI-powered container security command center.">
+  <title>SafeHeal Cloud | AI Cyber Defense Command Center</title>
+  <link rel="stylesheet" href="/web/assets/styles.css" onerror="this.href='styles.css'">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23111631'/%3E%3Cpath d='M20 5 32 11v9c0 9-6 13-12 16C14 33 8 29 8 20v-9Z' fill='none' stroke='%238A78FF' stroke-width='3'/%3E%3Cpath d='m14 20 4 4 9-9' fill='none' stroke='%233be2cf' stroke-width='3'/%3E%3C/svg%3E">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-logo"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 3 42 11v13c0 11-7.2 17.3-18 21C13.2 41.3 6 35 6 24V11L24 3Z" stroke="url(#lg)" stroke-width="2.5"/><path d="m16 24 5.5 5.5L33 18" stroke="#5ce7d8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="lg" x1="5" x2="45" y1="6" y2="42"><stop stop-color="#b5adff"/><stop offset="1" stop-color="#49ddf0"/></linearGradient></defs></svg></div>
+        <div class="brand-copy"><strong>SafeHeal <span>Cloud</span></strong><small>AI CYBER DEFENSE</small></div>
+      </div>
+      <div class="workspace-chip"><span class="workspace-icon">✦</span><div><strong>THE FALCONS</strong><small>Security workspace</small></div><span class="chevron">⌄</span></div>
+      <div class="nav-caption">WORKSPACE</div>
+      <nav aria-label="Main navigation" class="nav">
+        <button class="nav-item active" data-page="overview"><span class="nav-icon" data-icon="layout"></span>Overview<span class="nav-arrow">›</span></button>
+        <button class="nav-item" data-page="analysis"><span class="nav-icon" data-icon="sparkles"></span>AI Investigation</button>
+        <button class="nav-item" data-page="docker"><span class="nav-icon" data-icon="cube"></span>Docker Security</button>
+        <button class="nav-item" data-page="threats"><span class="nav-icon" data-icon="activity"></span>Threat Monitoring</button>
+        <button class="nav-item" data-page="live"><span class="nav-icon" data-icon="radar"></span>Live Attack Feed<span class="nav-live-dot"></span></button>
+        <div class="nav-caption secondary">MANAGEMENT</div>
+        <button class="nav-item" data-page="reports"><span class="nav-icon" data-icon="file"></span>Reports</button>
+        <button class="nav-item" data-page="settings"><span class="nav-icon" data-icon="settings"></span>Settings</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="guardian-visual" aria-hidden="true"><div class="guardian-ring ring-one"></div><div class="guardian-ring ring-two"></div><div class="guardian-shield">⬡</div></div>
+        <div class="sidebar-bottom-copy"><strong>Security, intelligently.</strong><p>Detect. Explain. Propose. Verify.</p></div>
+        <div class="build-label"><span class="mini-orb"></span> PROTOTYPE BUILD <span>v1.0</span></div>
+      </div>
+    </aside>
+
+    <div class="main-wrap">
+      <header class="topbar">
+        <div class="topbar-left"><button id="mobileMenu" class="icon-button mobile-only" aria-label="Toggle menu"><span data-icon="menu"></span></button><div class="crumb">WORKSPACE <span>/</span> <strong id="crumbName">Overview</strong></div></div>
+        <div class="topbar-right"><div class="mode-tag" id="modeTag"><span class="tag-dot"></span><span id="modeText">CHECKING CONNECTION</span></div><div class="top-divider"></div><div class="clock" id="clock">--:--:--</div><div class="avatar">F</div></div>
+      </header>
+
+      <main id="main" class="main-content">
+        <section class="page active" id="page-overview">
+          <div class="page-heading hero-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> SAFEHEAL CLOUD · INTELLIGENT SECURITY OPERATIONS</div><h1>Cyber defense. <em>Reimagined.</em></h1><p>One command center to detect threats, explain vulnerabilities, and propose safer containers.</p></div><div class="heading-actions"><button class="btn btn-ghost" id="refreshOverview"><span data-icon="refresh"></span> Refresh</button><button class="btn btn-brief" id="openBriefing"><span data-icon="play"></span> Judges demo</button><button class="btn btn-primary" data-goto="analysis"><span data-icon="sparkles"></span> New investigation</button></div></div>
+          <div class="metrics-grid" id="overviewMetrics">
+            <div class="metric-card"><div class="metric-top"><span>DOCKERFILE FINDINGS</span><span class="metric-symbol purple" data-icon="cube"></span></div><div class="metric-number" id="metricFindings">—</div><div class="metric-foot"><span class="neutral-dot"></span> <span id="metricFindingsSub">Run an investigation</span></div><div class="metric-wash purple-wash"></div></div>
+            <div class="metric-card"><div class="metric-top"><span>HIGH & CRITICAL</span><span class="metric-symbol red" data-icon="alert"></span></div><div class="metric-number" id="metricRisk">—</div><div class="metric-foot"><span class="neutral-dot"></span> <span id="metricRiskSub">Awaiting assessment</span></div><div class="metric-wash red-wash"></div></div>
+            <div class="metric-card"><div class="metric-top"><span>SCENARIO EVENTS</span><span class="metric-symbol cyan" data-icon="activity"></span></div><div class="metric-number" id="metricEvents">—</div><div class="metric-foot"><span class="cyan-dot"></span><span id="metricEventsSub">Loading scenario</span></div><div class="metric-wash cyan-wash"></div></div>
+            <div class="metric-card"><div class="metric-top"><span>PATCH REVIEW</span><span class="metric-symbol green" data-icon="shield"></span></div><div class="metric-number text-metric" id="metricPatch">—</div><div class="metric-foot"><span class="neutral-dot"></span><span id="metricPatchSub">Static review only</span></div><div class="metric-wash green-wash"></div></div>
+          </div>
+          <section class="proof-rail" aria-label="SafeHeal Cloud defense workflow">
+          <div class="proof-rail-title"><span class="proof-monogram">S<span>H</span></span><div><strong>THE SAFEHEAL METHOD</strong><small>From evidence to an explainable, reviewable security recommendation.</small></div><span class="proof-rail-badge">EVIDENCE FIRST</span></div>
+          <div class="proof-steps">
+            <div class="proof-step"><span class="proof-index">01</span><div><strong>Detect</strong><small id="proofDetect">Loading scenario…</small></div><span class="proof-symbol" data-icon="radar"></span></div>
+            <div class="proof-step"><span class="proof-index">02</span><div><strong>Explain</strong><small id="proofExplain">Waiting for AI analysis</small></div><span class="proof-symbol" data-icon="sparkles"></span></div>
+            <div class="proof-step"><span class="proof-index">03</span><div><strong>Propose</strong><small id="proofPropose">No patch proposed</small></div><span class="proof-symbol" data-icon="code"></span></div>
+            <div class="proof-step"><span class="proof-index">04</span><div><strong>Review</strong><small id="proofReview">Static checks not run</small></div><span class="proof-symbol" data-icon="shield"></span></div>
+          </div>
+        </section>
+        <div class="overview-grid">
+            <section class="panel topology-panel"><div class="panel-head"><div><div class="panel-eyebrow">THREAT INTELLIGENCE</div><h2>Security signal map <span class="info-mark" title="Conceptual topology. Nodes are not geolocated.">ⓘ</span></h2><p>Visual relationship between activity, analysis, and defense.</p></div><span class="outline-badge" id="topologyBadge">SIMULATED SCENARIO</span></div>
+              <div class="topology-layout"><div class="topology-visual">
+                <svg viewBox="0 0 680 328" class="network-svg" role="img" aria-label="Conceptual security topology showing events connected to a protected container and its analysis engine">
+                  <defs><pattern id="netgrid" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M26 0H0V26" fill="none" stroke="#1d3550" stroke-width=".7" opacity=".42"/></pattern><radialGradient id="hubGlow"><stop stop-color="#5a58ea" stop-opacity=".23"/><stop offset="1" stop-color="#5a58ea" stop-opacity="0"/></radialGradient><linearGradient id="flowLine" x1="0" x2="1"><stop stop-color="#f76a8b"/><stop offset=".55" stop-color="#877bf9"/><stop offset="1" stop-color="#3be8df"/></linearGradient></defs>
+                  <rect width="680" height="328" fill="url(#netgrid)"/><ellipse cx="343" cy="167" rx="168" ry="140" fill="url(#hubGlow)"/><g class="network-beams" stroke="url(#flowLine)" stroke-width="1.5" fill="none"><path d="M104 71 Q 175 130 283 161"/><path d="M105 254 Q 189 189 283 169"/><path d="M324 49 Q 293 98 325 127"/><path d="M555 74 Q 486 123 389 157"/><path d="M556 256 Q 489 196 395 175"/><path d="M340 214 Q 347 251 345 299"/></g>
+                  <g class="net-node danger" transform="translate(105 71)"><circle r="25" fill="#231627" stroke="#d9507a" stroke-opacity=".7"/><circle r="7" fill="#f56a91"/><circle r="35" fill="none" stroke="#f56a91" stroke-opacity=".16"/><text x="0" y="49" text-anchor="middle">THREAT SIGNAL</text></g>
+                  <g class="net-node danger" transform="translate(105 254)"><circle r="25" fill="#231627" stroke="#d9507a" stroke-opacity=".7"/><path d="M-9 7 0-10 9 7Z" stroke="#fa89a6" stroke-width="2" fill="none"/><text x="0" y="49" text-anchor="middle">ATTACK LOGS</text></g>
+                  <g class="net-node" transform="translate(324 49)"><circle r="23" fill="#151d38" stroke="#877bfb" stroke-opacity=".6"/><path d="M-8-5 0-10 8-5v10L0 10-8 5Z" stroke="#b7adff" stroke-width="2" fill="none"/><text x="0" y="-33" text-anchor="middle">DOCKERFILE</text></g>
+                  <g class="net-node" transform="translate(555 74)"><circle r="25" fill="#102f36" stroke="#44d8d7" stroke-opacity=".6"/><circle r="9" stroke="#5ae9e3" stroke-width="2" fill="none"/><path d="M-14 0h28M0-14v28" stroke="#5ae9e3" opacity=".7"/><text x="0" y="49" text-anchor="middle">AI REASONING</text></g>
+                  <g class="net-node" transform="translate(556 256)"><circle r="25" fill="#102c2a" stroke="#3acda8" stroke-opacity=".65"/><path d="M0-13 12-7v10c0 7-6 11-12 14C-6 14-12 10-12 3V-7Z" fill="none" stroke="#45e2b2" stroke-width="2"/><text x="0" y="49" text-anchor="middle">STATIC CHECKS</text></g>
+                  <g class="net-node" transform="translate(345 297)"><circle r="23" fill="#1a2238" stroke="#697ba7"/><path d="m-9 0 6 6 12-13" fill="none" stroke="#98b7db" stroke-width="2.5"/><text x="0" y="-27" text-anchor="middle">PATCH PROPOSAL</text></g>
+                  <g class="hub" transform="translate(343 170)"><circle r="64" stroke="#8475f5" stroke-opacity=".2" fill="none" stroke-width="2"/><circle r="51" fill="#121d37" stroke="#786df0" stroke-width="1.6"/><circle r="39" fill="#1a2050"/><path d="M0-27 24-15v18C24 17 13 25 0 30-13 25-24 17-24 3v-18Z" fill="#6e61e9" fill-opacity=".18" stroke="#aa9fff" stroke-width="2.5"/><path d="m-11 1 8 8 17-18" stroke="#55e9dc" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="0" y="75" text-anchor="middle" class="hub-title">SAFEHEAL ENGINE</text></g>
+                </svg><div class="topology-overlay">● DETECT <span>→</span> ● REASON <span>→</span> ● PROPOSE</div>
+              </div><aside class="topology-legend"><div class="legend-title">MISSION SNAPSHOT</div><div class="legend-item"><div class="legend-indicator" style="background:#f76d93"></div><div><strong id="legendSignals">—</strong><small>Suspicious-looking events</small></div></div><div class="legend-item"><div class="legend-indicator" style="background:#887afd"></div><div><strong id="legendCorrelation">—</strong><small>Evidence correlations</small></div></div><div class="legend-item"><div class="legend-indicator" style="background:#42d8cf"></div><div><strong id="legendMode">Pending</strong><small>AI processing mode</small></div></div><div class="legend-note">Topology is conceptual, not a network or geographic trace.</div></aside></div>
+            </section>
+            <section class="panel recent-panel"><div class="panel-head"><div><div class="panel-eyebrow">EVENT STREAM</div><h2>Latest activity</h2><p>Events from the selected scenario.</p></div><span class="small-badge"><span class="tiny-dot"></span> DEMO</span></div><div id="recentEvents" class="event-stack"></div><button class="link-button" data-goto="threats">Explore all events <span>↗</span></button></section>
+          </div>
+          <div class="overview-bottom">
+            <section class="panel quickstart-panel"><div class="panel-head"><div><div class="panel-eyebrow">GUIDED INVESTIGATION</div><h2>From suspicious to secure.</h2><p>Explain the connection between a vulnerable image and attack activity.</p></div><span class="mini-pill">4-STEP WORKFLOW</span></div><div class="workflow"><div class="workflow-item"><span>01</span><div class="workflow-icon" data-icon="upload"></div><strong>Upload</strong><small>Dockerfile + logs</small></div><div class="workflow-line"></div><div class="workflow-item"><span>02</span><div class="workflow-icon" data-icon="sparkles"></div><strong>Analyze</strong><small>Evidence-aware AI</small></div><div class="workflow-line"></div><div class="workflow-item"><span>03</span><div class="workflow-icon" data-icon="code"></div><strong>Patch</strong><small>Proposed diff</small></div><div class="workflow-line"></div><div class="workflow-item"><span>04</span><div class="workflow-icon" data-icon="shield"></div><strong>Review</strong><small>Static checks only</small></div></div><div class="quickstart-actions"><button class="btn btn-primary" id="quickDemo"><span data-icon="play"></span> Launch guided demo</button><span class="microcopy">Uses project sample inputs. No patch is executed.</span></div></section>
+            <section class="panel distribution-panel"><div class="panel-head"><div><div class="panel-eyebrow">SCENARIO BREAKDOWN</div><h2>Event distribution</h2></div><span class="outline-badge">SOURCE DATA</span></div><div class="distribution-content"><div id="donut" class="donut"><div class="donut-hole"><strong id="donutTotal">—</strong><small>EVENTS</small></div></div><div id="distributionLegend" class="distribution-list"></div></div></section>
+          </div>
+          <div class="foot-note">SAFEHEAL CLOUD • EXPLAINABLE DEFENSE PROTOTYPE <span>Threat scenarios, responses, and proposed patches must not be mistaken for verified production defenses.</span></div>
+        </section>
+
+        <section class="page" id="page-analysis">
+          <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> AI-POWERED INVESTIGATION</div><h1>Investigate. <em>Understand. Heal.</em></h1><p>Upload your Dockerfile and optional JSON logs. Get grounded security findings and a proposed patch.</p></div><span class="outline-badge" id="analysisModeLabel">NO ANALYSIS YET</span></div>
+          <div class="analysis-grid">
+            <section class="panel upload-panel"><div class="panel-head"><div><div class="panel-eyebrow">01 / EVIDENCE</div><h2>Investigation inputs</h2></div><span class="small-badge"><span class="tiny-dot"></span> MAX 1 MB / FILE</span></div>
+              <div class="dropzone" id="dockerDrop" role="button" tabindex="0" aria-label="Choose Dockerfile"><div class="dropicon" data-icon="upload"></div><strong id="dockerFileName">Drop your Dockerfile here</strong><span id="dockerFileHint">or click to browse • UTF-8 • exact filename Dockerfile</span><input type="file" id="dockerInput" hidden aria-label="Choose Dockerfile"></div>
+              <div class="optional-uploader"><div class="tiny-icon" data-icon="file"></div><div><strong id="logsFileName">Attach security event logs</strong><small>Optional JSON event evidence</small></div><button class="small-button" id="logsChoose">Browse</button><input id="logsInput" type="file" accept=".json,application/json" hidden></div>
+              <div class="small-divider"></div>
+              <button class="btn btn-soft full-width" id="loadDemo"><span data-icon="sparkles"></span> Load demo Dockerfile + logs</button>
+              <button class="btn btn-primary full-width big-cta" id="analyzeBtn"><span data-icon="play"></span> Start AI investigation <span class="right-arrow">→</span></button>
+              <section class="team-access-panel" aria-label="Private AI investigation">
+                <div class="team-access-divider"><span>PRIVATE TEAM ACCESS</span></div>
+                <div class="team-access-header">
+                  <span class="team-access-mark" data-icon="shield"></span>
+                  <div class="team-access-copy"><strong>Real AI investigation</strong><small>Authenticated team members only</small></div>
+                  <span class="team-access-badge">LIVE AI</span>
+                </div>
+                <button class="team-nebius-button" id="teamNebiusBtn" type="button">
+                  <span class="team-nebius-button-icon" data-icon="lock"></span>
+                  <span class="team-nebius-button-label">Run real Nemotron</span>
+                  <span class="team-nebius-arrow" aria-hidden="true">↗</span>
+                </button>
+                <p class="team-access-note">Powered by Nebius · Uses team credits</p>
+              </section>
+              <p class="panel-help">Public analysis uses mock AI. Proposed changes are never executed.</p>
+              <div id="analysisStatus" class="analysis-status" role="status" aria-live="polite">Ready when you are.</div>
+            </section>
+            <section class="panel results-panel"><div class="panel-head"><div><div class="panel-eyebrow">02 / ASSESSMENT</div><h2>Investigation results</h2></div><div id="resultStatus" class="result-state muted-state">NOT RUN</div></div>
+              <div class="result-overview"><div><span>FINDINGS</span><strong id="resultCount">—</strong></div><div><span>HIGH / CRITICAL</span><strong id="resultHigh" class="pink-text">—</strong></div><div><span>CORRELATIONS</span><strong id="resultCorr" class="cyan-text">—</strong></div></div>
+              <div id="analysisSummary" class="result-callout"><span data-icon="shield"></span><div><strong>Run your first investigation</strong><p>Findings, grounded explanations, and static patch checks will appear here.</p></div></div>
+              <div class="subsection-heading">IDENTIFIED FINDINGS <span id="findingsCountPill">0</span></div><div id="findingsList" class="findings-list"><div class="empty-inline">No analysis results yet.</div></div>
+              <div class="subsection-heading">EVENT CORRELATIONS <span id="correlationsCountPill">0</span></div><div id="correlationsList" class="correlation-list"><div class="empty-inline">Related event evidence will show here.</div></div>
+            </section>
+          </div>
+          <div class="patch-grid">
+            <section class="panel code-panel"><div class="panel-head"><div><div class="panel-eyebrow">03 / REMEDIATION</div><h2>Proposed Dockerfile patch</h2><p>Review code changes before any manual implementation.</p></div><div class="code-actions"><button class="small-button" id="copyPatch">Copy patch</button><button class="small-button filled" id="downloadPatch"><span data-icon="download"></span> Export</button></div></div><div class="code-toolbar"><span class="file-name"><span class="file-square">⬡</span> Dockerfile.proposed</span><span class="code-readonly">READ ONLY</span></div><pre class="code-view" id="patchCode"><code>No patch proposed yet. Run an investigation to see suggested improvements.</code></pre><div class="code-footer"><span id="patchStatus">Awaiting static review</span><span>Never auto-applied</span></div></section>
+            <section class="panel validation-panel"><div class="panel-head"><div><div class="panel-eyebrow">04 / ASSURANCE</div><h2>Independent static checks</h2><p>Backend-owned validation, separate from AI claims.</p></div><div class="validation-illustration" data-icon="shield"></div></div><div id="validationContent" class="validation-content"><div class="validation-empty"><span data-icon="scan"></span><strong>No validation yet</strong><p>Checks will appear after an investigation.</p></div></div><div class="truth-note"><span data-icon="info"></span> A passing text check does not verify a build, runtime behavior, or real-world security.</div></section>
+          </div>
+        </section>
+
+        <section class="page" id="page-docker">
+          <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> CONTAINER HARDENING</div><h1>Security down to <em>every layer.</em></h1><p>Compare the uploaded Dockerfile to a proposed hardened configuration.</p></div><button class="btn btn-primary" data-goto="analysis"><span data-icon="sparkles"></span> Run AI analysis</button></div>
+          <div class="comparison-grid"><section class="panel"><div class="panel-head"><div><div class="panel-eyebrow">ORIGINAL EVIDENCE</div><h2>Current Dockerfile</h2></div><span class="risk-pill">INPUT</span></div><pre class="code-view docker-code" id="originalCode"><code>Load a demo or choose a Dockerfile in AI Investigation.</code></pre></section><section class="panel"><div class="panel-head"><div><div class="panel-eyebrow">PROPOSED REMEDIATION</div><h2>Suggested secure version</h2></div><span class="success-pill">PROPOSAL</span></div><pre class="code-view docker-code" id="secureCode"><code>No proposal available until analysis completes.</code></pre></section></div>
+          <section class="panel diff-panel"><div class="panel-head"><div><div class="panel-eyebrow">LINE-BY-LINE CHANGES</div><h2>Patch diff</h2></div><button class="small-button" data-goto="reports">Export report</button></div><pre class="code-view diff-code" id="diffCode"><code>Run AI Investigation to see a generated diff.</code></pre><div class="truth-note"><span data-icon="info"></span> This tool does not apply patches or build containers.</div></section>
+        </section>
+
+        <section class="page" id="page-threats"><div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> BEHAVIORAL TELEMETRY</div><h1>Every signal. <em>One picture.</em></h1><p>Inspect synthetic attack scenarios and distinguish malicious-looking activity from benign requests.</p></div><div class="heading-actions"><select class="select" id="scenarioSelect" aria-label="Select demo scenario"><option value="classic">Classic scenario · 3 events</option><option value="extended">Extended scenario · 16 events</option></select><button class="btn btn-ghost" id="refreshThreats"><span data-icon="refresh"></span> Load</button></div></div>
+          <div class="telemetry-grid"><section class="panel telemetry-chart-panel"><div class="panel-head"><div><div class="panel-eyebrow">EVENT TELEMETRY</div><h2>Activity by timeline</h2><p>Counts computed from scenario event timestamps.</p></div><span class="outline-badge">DEMO DATA</span></div><div id="timelineChart" class="timeline-chart"></div></section><section class="panel categories-panel"><div class="panel-head"><div><div class="panel-eyebrow">EVENT TAXONOMY</div><h2>Event categories</h2></div></div><div id="categoryBars" class="category-bars"></div></section></div>
+          <section class="panel events-table-panel"><div class="panel-head table-panel-head"><div><div class="panel-eyebrow">EVIDENCE LOG</div><h2>Event explorer <span id="eventCount" class="counter-pill">0</span></h2></div><div class="filters"><label class="sr-only" for="eventSearch">Search events</label><input id="eventSearch" class="search-input" type="search" placeholder="Search type, IP, endpoint..."><label class="sr-only" for="typeFilter">Filter event type</label><select class="select" id="typeFilter"><option value="all">All event types</option></select></div></div><div class="table-scroll"><table class="events-table"><thead><tr><th>TIME</th><th>EVENT TYPE</th><th>SOURCE</th><th>DETAILS</th><th>RECORDED STATUS</th></tr></thead><tbody id="eventsTableBody"></tbody></table></div><div class="table-foot"><span>Source: project security scenario files • Not real production telemetry</span><button class="link-button" id="downloadEvents">Export JSON ↗</button></div></section>
+        </section>
+
+        <section class="page" id="page-live"><div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> REAL-TIME OBSERVABILITY</div><h1>On watch. <em>In the moment.</em></h1><p>Observe suspicious HTTP paths reaching this demo backend. No blocking or active containment.</p></div><div class="heading-actions"><span class="outline-badge" id="liveConnStatus">NOT CONNECTED</span><button class="btn btn-ghost" id="pollToggle"><span data-icon="pause"></span> Pause feed</button></div></div>
+          <div class="live-top-grid"><section class="panel live-hero"><div class="radar-mark"><span data-icon="radar"></span></div><div><div class="panel-eyebrow">LIVE EVENT WATCHER</div><h2 id="liveHeroTitle">Waiting for secure connection</h2><p id="liveHeroDescription">Live access is available only through the local server-side demo gateway. No token is exposed to the browser.</p></div><div class="live-readout"><strong id="liveTotal">0</strong><small>OBSERVED EVENTS</small></div></section><section class="panel probe-panel"><div class="panel-eyebrow">SAFE DEMO ACTION</div><h2>Generate a test signal</h2><p>Make a request to the intentionally nonexistent <code>/api/debug/demo</code> path. Middleware observes the path; the request is not an exploit.</p><button class="btn btn-soft full-width" id="triggerProbe"><span data-icon="zap"></span> Send harmless test probe</button></section></div>
+          <section class="panel live-feed-panel"><div class="panel-head"><div><div class="panel-eyebrow">STREAMED OBSERVATIONS</div><h2>Live security events</h2></div><span class="pulse-pill"><span></span> POLLING EVERY 4S</span></div><div class="live-feed-columns"><div class="live-feed-header"><span>EVENT</span><span>CLIENT</span><span>ENDPOINT</span><span>UTC TIMESTAMP</span></div><div id="liveEventRows" class="live-event-rows"><div class="empty-inline">No events observed in this process yet.</div></div></div></section>
+        </section>
+
+        <section class="page" id="page-reports"><div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> EVIDENCE & EXPORTS</div><h1>Clarity you <em>can share.</em></h1><p>Export analysis artifacts for a reviewer, team discussion, or demo walkthrough.</p></div></div><div class="reports-grid"><section class="panel export-card"><div class="export-icon purple" data-icon="file"></div><h2>Investigation JSON</h2><p>Full AI response, evidence correlation, proposed patch and independent validation.</p><button class="btn btn-primary full-width" id="reportJSON">Download JSON report</button></section><section class="panel export-card"><div class="export-icon cyan" data-icon="code"></div><h2>Proposed Dockerfile</h2><p>Export suggested changes as a new file for separate human review.</p><button class="btn btn-soft full-width" id="reportDocker">Download proposed file</button></section><section class="panel export-card"><div class="export-icon green" data-icon="activity"></div><h2>Scenario event log</h2><p>Export the currently selected sample events without altering their meaning.</p><button class="btn btn-soft full-width" id="reportEvents">Download event log</button></section></div><div class="panel report-disclaimer"><span data-icon="shield"></span><div><h2>Evidence over claims.</h2><p>The platform uses simulated scenarios and never applies AI-proposed patches. Reports describe what was observed and checked, not what has been deployed.</p></div></div></section>
+
+        <section class="page" id="page-settings"><div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> WORKSPACE CONFIGURATION</div><h1>Control the <em>command center.</em></h1><p>Check connectivity and understand the operational limits of your local demo.</p></div></div><div class="settings-grid"><section class="panel"><div class="panel-head"><div><div class="panel-eyebrow">CONNECTIVITY</div><h2>Service connections</h2></div><button class="small-button" id="settingsCheck">Recheck</button></div><div class="settings-row"><div><strong>FastAPI backend</strong><small>GET /api/health • same-origin</small></div><span id="settingsApi" class="connection-pill">Checking</span></div><div class="settings-row"><div><strong>AI analysis source</strong><small>Backend chooses mock or Nebius</small></div><span id="settingsAi" class="connection-pill">Unknown</span></div><div class="settings-row"><div><strong>Live monitor gateway</strong><small>Server-side token • loopback only</small></div><span id="settingsLive" class="connection-pill">Checking</span></div></section><section class="panel"><div class="panel-eyebrow">DEMO PREFERENCES</div><h2 style="margin-top:7px">Scenario selection</h2><p class="muted-description">Choose the project event set used across the overview and telemetry screens.</p><div class="settings-row"><div><strong>Active scenario</strong><small>Uses local project example logs</small></div><select class="select" id="settingsScenario"><option value="classic">Classic (3)</option><option value="extended">Extended (16)</option></select></div><div class="settings-row"><div><strong>Live polling</strong><small>Refresh every four seconds while enabled</small></div><button class="small-button" id="settingsPollToggle">Pause</button></div></section></div><div class="panel security-boundary"><div class="panel-eyebrow">SAFETY BOUNDARY</div><h2>What SafeHeal does — and doesn't.</h2><div class="boundary-grid"><div><span class="boundary-check">✓</span> Reads Dockerfile and optional logs</div><div><span class="boundary-check">✓</span> Explains evidence-linked findings</div><div><span class="boundary-check">✓</span> Proposes patches and performs static checks</div><div><span class="boundary-cross">—</span> Does not build or run containers</div><div><span class="boundary-cross">—</span> Does not block actual IP addresses</div><div><span class="boundary-cross">—</span> Does not autonomously deploy patches</div></div></div></section>
+      </main>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="modal" class="modal-backdrop" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-header"><h2 id="modalTitle">Finding details</h2><button id="modalClose" aria-label="Close" class="icon-button"><span data-icon="x"></span></button></div><div id="modalBody" class="modal-body"></div><div class="modal-footer"><button class="btn btn-soft" id="modalDismiss">Close</button></div></div></div>
+  <dialog id="teamConfirmDialog" class="team-confirm-dialog" aria-labelledby="teamConfirmTitle" aria-describedby="teamConfirmDescription">
+    <div class="team-confirm-symbol" data-icon="shield"></div>
+    <div class="team-confirm-kicker">PRIVATE · LIVE NEMOTRON</div>
+    <h2 id="teamConfirmTitle">Start a real AI investigation?</h2>
+    <p id="teamConfirmDescription">This analyzes built-in demo evidence using the real Nebius model and may consume your team's AI credits.</p>
+    <div class="team-confirm-assurance"><span data-icon="lock"></span> Only authorized team members can run this. No changes are applied to containers.</div>
+    <form method="dialog" class="team-confirm-actions">
+      <button class="btn btn-ghost" type="submit" value="cancel">Cancel</button>
+      <button class="btn btn-primary" type="submit" value="confirm"><span data-icon="play"></span> Run live analysis</button>
+    </form>
+  </dialog>
+  <script src="/web/assets/app.js" onerror="var s=document.createElement('script');s.src='app.js';document.body.appendChild(s)"></script>
+</body>
+</html>

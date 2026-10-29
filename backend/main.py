@@ -1,0 +1,171 @@
+
+import json
+
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from starlette.concurrency import run_in_threadpool
+
+from backend.simulation import simulate_response
+from backend.validator import validate_dockerfile, review_proposed_patch
+from backend.attack_monitor import router as attack_monitor_router
+from backend.live_monitor import live_monitor_middleware
+from backend.live_stream import router as live_stream_router
+from ai.service import analyze_evidence
+
+
+app = FastAPI(
+    title="Autonomous Cyber Defense Agent",
+    version="0.1.0"
+)
+
+# Register Attack Monitor routes
+app.include_router(attack_monitor_router)
+
+# Register Live Attack Monitoring routes
+app.include_router(live_stream_router)
+
+# Enable real-time HTTP request monitoring
+app.middleware("http")(live_monitor_middleware)
+
+MAX_FILE_SIZE = 1024 * 1024  # 1 MB
+
+
+def _unexpected_ai_failure():
+    """Same shape as ai.service's own ai_error result, with safe defaults."""
+    return {
+        "status": "ai_error",
+        "findings": [],
+        "correlations": [],
+        "patch": {
+            "patched_dockerfile": "",
+            "diff": "",
+            "summary": ""
+        },
+        "tests": {
+            "status": "not_run",
+            "passed": None,
+            "details": []
+        },
+        "response": {
+            "mode": "simulation",
+            "actions": []
+        },
+        "ai": {
+            "source": "unknown",
+            "model": None,
+            "summary": "",
+            "limitations": [],
+            "next_steps": [],
+            "warnings": [],
+            "finding_evidence": {},
+            "patch_status": "none",
+            "error": {
+                "code": "internal_error",
+                "message": "AI analysis failed unexpectedly."
+            },
+        },
+    }
+
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok"}
+
+
+@app.post("/api/analyze")
+async def analyze(
+    dockerfile: UploadFile = File(...),
+    attack_logs: UploadFile | None = File(None)
+):
+
+    # 1. Validate Dockerfile filename
+    if dockerfile.filename != "Dockerfile":
+        raise HTTPException(
+            status_code=400,
+            detail="File must be named Dockerfile"
+        )
+
+    # 2. Read Dockerfile with size limit
+    docker_content = await dockerfile.read(MAX_FILE_SIZE + 1)
+
+    if len(docker_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="Dockerfile exceeds 1 MB limit"
+        )
+
+    if not docker_content.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Dockerfile is empty"
+        )
+
+    # 3. Validate text encoding
+    try:
+        docker_text = docker_content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="Dockerfile must be UTF-8 text"
+        )
+
+    # 4. Validate optional JSON attack logs
+    logs = None
+
+    if attack_logs is not None:
+
+        if not attack_logs.filename.lower().endswith(".json"):
+            raise HTTPException(
+                status_code=400,
+                detail="Attack logs must be a JSON file"
+            )
+
+        logs_content = await attack_logs.read(MAX_FILE_SIZE + 1)
+
+        if len(logs_content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="Attack logs exceed 1 MB limit"
+            )
+
+        try:
+            logs = json.loads(logs_content.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid JSON attack logs"
+            )
+
+        if not isinstance(logs, (dict, list)):
+            raise HTTPException(
+                status_code=400,
+                detail="Attack logs must contain an object or array"
+            )
+
+    # 5. Analyze evidence without blocking the async request loop.
+    # AI/network errors are represented as structured results.
+    # This except handles unexpected failures as a final safeguard.
+    try:
+        result = await run_in_threadpool(
+            analyze_evidence,
+            docker_text,
+            logs
+        )
+    except Exception:
+        result = _unexpected_ai_failure()
+
+    # 6. Validate the uploaded Dockerfile independently of AI.
+    original_review = validate_dockerfile(docker_text)
+
+    result["tests"] = {
+        "status": "completed",
+        "passed": original_review["passed"],
+        "details": original_review["details"],
+    }
+
+    # 7. Both static reviews must pass; no images are built or executed.
+    review_proposed_patch(docker_text, result)
+
+    # 8. Only the backend owns simulated response actions.
+    result["response"] = simulate_response(logs)
+
+    return result

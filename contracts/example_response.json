@@ -3,25 +3,69 @@
   "findings": [
     {
       "id": "F-001",
-      "issue": "Container runs as root",
+      "title": "EXAMPLE: Container runs as root",
       "severity": "HIGH",
-      "description": "No non-root USER configured",
-      "evidence": "Dockerfile",
-      "recommendation": "Use a non-root user"
+      "description": "Illustrative example only. No non-root USER configured.",
+      "recommendation": "Illustrative example only. Create a non-root user and switch to it with USER."
     }
   ],
-  "correlations": [],
+  "correlations": [
+    {
+      "event_type": "EXAMPLE_AUTH_ATTEMPT",
+      "source_ip": "192.0.2.10",
+      "related_finding_ids": [
+        "F-001"
+      ],
+      "explanation": "Illustrative example only. event_type and source_ip are copied from the uploaded logs, or null when the logs do not contain them. 192.0.2.10 is a reserved documentation address (RFC 5737)."
+    }
+  ],
   "patch": {
-    "patched_dockerfile": "",
-    "diff": ""
+    "patched_dockerfile": "FROM python:3.11-slim\nRUN useradd --create-home appuser\nUSER appuser\n",
+    "diff": "--- Dockerfile\n+++ Dockerfile.proposed\n@@ -1 +1,3 @@\n FROM python:3.11-slim\n+RUN useradd --create-home appuser\n+USER appuser\n",
+    "summary": "Illustrative example only. Proposed patch adds and switches to a non-root user. Not validated until the backend checks it."
   },
   "tests": {
-    "status": "not_run",
-    "passed": null,
-    "details": []
+    "status": "completed",
+    "passed": false,
+    "details": [
+      "Missing non-root USER instruction"
+    ],
+    "proposed_patch": {
+      "status": "static_review_only",
+      "passed": true,
+      "details": []
+    }
   },
   "response": {
     "mode": "simulation",
     "actions": []
+  },
+  "ai": {
+    "source": "mock",
+    "model": "mock-rule-based",
+    "summary": "Illustrative example only. 1 finding, 1 correlation.",
+    "limitations": [
+      "Illustrative example only. Static analysis of the uploaded text; nothing was built or run."
+    ],
+    "next_steps": [
+      "Illustrative example only. Validate the proposed patch before use."
+    ],
+    "warnings": [],
+    "finding_evidence": {
+      "F-001": "EXAMPLE: no USER instruction in the Dockerfile"
+    },
+    "patch_status": "proposed_not_validated",
+    "patch_review": {
+      "type": "static",
+      "passed": true,
+      "issues": [],
+      "note": "Static text checks only. No image was built and no container was run."
+    },
+    "schema_validation": {
+      "schema": "ai/output_schema.json",
+      "valid": true,
+      "errors": []
+    },
+    "error": null
   }
 }

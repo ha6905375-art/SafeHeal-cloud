@@ -1,0 +1,44 @@
+{
+  "summary": "Security misconfigurations and suspicious activity detected.",
+  "risk_level": "HIGH",
+  "findings": [
+    {
+      "title": "Container Running as Root",
+      "severity": "HIGH",
+      "evidence": ["No USER instruction is present in the Dockerfile"],
+      "description": "The Dockerfile never switches to a non-root user, so the application process runs as root by default inside the container.",
+      "recommendation": "Create a dedicated non-root user and switch to it with a USER instruction."
+    },
+    {
+      "title": "Unnecessary SSH Service",
+      "severity": "HIGH",
+      "evidence": ["openssh-server installed", "EXPOSE 22"],
+      "description": "Unnecessary SSH components increase attack surface.",
+      "recommendation": "Remove SSH installation and EXPOSE 22."
+    },
+    {
+      "title": "Hardcoded Credential",
+      "severity": "HIGH",
+      "evidence": ["AWS_SECRET_KEY assigned in ENV"],
+      "description": "A credential-like value is hardcoded.",
+      "recommendation": "Remove hardcoded credentials and use runtime secrets."
+    },
+    {
+      "title": "Debug Mode Enabled",
+      "severity": "MEDIUM",
+      "evidence": ["DEBUG_MODE=true"],
+      "description": "Debug settings may expose sensitive information.",
+      "recommendation": "Disable debug mode in production."
+    }
+  ],
+"attack_analysis": "Three suspicious events originated from source IP 198.51.100.45. The sequence started with PORT_SCAN targeting port 22, followed by a failed AUTH_ATTEMPT against root, and an EXPLOITATION_ATTEMPT targeting the debug endpoint on port 5000. The SSH-related events may be relevant to the Dockerfile installing openssh-server and declaring EXPOSE 22. The debug endpoint attempt may be relevant to DEBUG_MODE=true and the hardcoded credential-like value. These events indicate suspicious activity, but there is no evidence of successful compromise.",
+  "patch": "FROM python:3.11-slim\nRUN groupadd -r appuser && useradd -r -g appuser appuser\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY --chown=appuser:appuser . .\nUSER appuser\nEXPOSE 5000\nCMD [\"python\", \"app.py\"]",
+  "containment_actions": [
+    "Recommend investigating and temporarily blocking the suspicious IP in an isolated test environment."
+  ],
+  "tests": [
+    "Build the patched Docker image.",
+    "Verify the container runs as non-root.",
+    "Verify application functionality on port 5000."
+  ]
+}
