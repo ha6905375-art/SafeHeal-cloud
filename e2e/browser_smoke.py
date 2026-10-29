@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO_PASSWORD = "ci-only-browser-password-not-a-real-secret"
@@ -57,7 +57,7 @@ def _ready(server: subprocess.Popen, url: str) -> None:
             with urllib.request.urlopen(url + "/api/health", timeout=1) as response:
                 if json.load(response).get("status") == "ok":
                     return
-        except (urllib.error.URLError, TimeoutError, ValueError):
+        except (OSError, TimeoutError, ValueError):
             time.sleep(0.25)
     raise RuntimeError("Local health endpoint was not ready after 30 seconds")
 
@@ -77,7 +77,7 @@ def main() -> None:
 
                 # Visitors can use the demo without a login.
                 page.goto(url, wait_until="domcontentloaded", timeout=20000)
-                page.locator("#modeText").get_by_text("BACKEND CONNECTED").wait_for(timeout=15000)
+                expect(page.locator("#modeText")).to_have_text("BACKEND CONNECTED", timeout=15000)
 
                 # Protected private AI route must fail closed; do not invoke model.
                 unauthorized = page.request.post(url + "/web/team-nebius-demo")
@@ -88,9 +88,9 @@ def main() -> None:
                 # evidence, patch validation and report export.
                 page.locator('[data-page="analysis"]').click()
                 page.locator("#loadDemo").click()
-                page.locator("#dockerFileName").get_by_text("Dockerfile").wait_for(timeout=10000)
+                expect(page.locator("#dockerFileName")).to_have_text("Dockerfile", timeout=10000)
                 page.locator("#analyzeBtn").click()
-                page.locator("#resultStatus").get_by_text("COMPLETED").wait_for(timeout=30000)
+                expect(page.locator("#resultStatus")).to_have_text("COMPLETED", timeout=30000)
                 assert "MOCK" in page.locator("#analysisModeLabel").inner_text()
                 assert int(page.locator("#resultCount").inner_text()) >= 4
                 assert int(page.locator("#resultCorr").inner_text()) >= 1

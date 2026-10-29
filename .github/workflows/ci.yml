@@ -53,7 +53,8 @@ jobs:
 
   browser-e2e:
     name: Chromium browser E2E (public mock only)
-    runs-on: ubuntu-latest
+    # Playwright 1.56 does not install Chromium on GitHub's Ubuntu 26.04 image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       AI_MODE: mock
@@ -78,7 +79,7 @@ jobs:
 
   docker-compose:
     name: Docker Compose build and public mock smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
       SAFEHEAL_DEMO_PASSWORD: ci-only-compose-password-not-for-production
@@ -95,7 +96,7 @@ jobs:
       - name: Check running container and public mock analysis
         run: |
           python - <<'PY'
-          import json, time, urllib.error, urllib.request
+          import http.client, json, time, urllib.error, urllib.request
 
           base = "http://127.0.0.1:8000"
           deadline = time.monotonic() + 45
@@ -104,7 +105,7 @@ jobs:
                   with urllib.request.urlopen(base + "/api/health", timeout=2) as response:
                       assert json.load(response) == {"status": "ok"}
                   break
-              except (urllib.error.URLError, TimeoutError):
+              except (OSError, http.client.HTTPException, TimeoutError):
                   if time.monotonic() >= deadline:
                       raise
                   time.sleep(1)
