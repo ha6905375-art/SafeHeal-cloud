@@ -86,12 +86,26 @@ def main() -> None:
 
                 # UI navigation, browser-side loading, actual backend mock,
                 # evidence, patch validation and report export.
+                # Force the explorer to Extended first. The bundled AI
+                # workflow must then switch back to Classic evidence.
+                page.locator('[data-page="threats"]').click()
+                page.locator("#scenarioSelect").select_option("extended")
+                expect(page.locator("#eventCount")).to_have_text("16", timeout=10000)
                 page.locator('[data-page="analysis"]').click()
                 page.locator("#loadDemo").click()
+                expect(page.locator("#scenarioSelect")).to_have_value("classic")
+                expect(page.locator("#settingsScenario")).to_have_value("classic")
+                expect(page.locator("#eventCount")).to_have_text("3", timeout=10000)
+                # The custom visual dropdown must reflect the same scenario
+                # as the native selection, without reopening the menu.
+                expect(page.locator("#scenarioSelect + .sh-dropdown-trigger .sh-dropdown-value")).to_contain_text("Classic")
                 expect(page.locator("#dockerFileName")).to_have_text("Dockerfile", timeout=10000)
                 page.locator("#analyzeBtn").click()
                 expect(page.locator("#resultStatus")).to_have_text("COMPLETED", timeout=30000)
                 assert "MOCK" in page.locator("#analysisModeLabel").inner_text()
+                expect(page.locator("#analysisEvidence")).to_contain_text(
+                    "Classic demo · 3 bundled synthetic events"
+                )
                 assert int(page.locator("#resultCount").inner_text()) >= 4
                 assert int(page.locator("#resultCorr").inner_text()) >= 1
                 assert "Proposed patch" in page.locator("#validationContent").inner_text()
@@ -119,6 +133,17 @@ def main() -> None:
                 assert analysis["response"]["mode"] == "simulation"
                 assert analysis["tests"]["proposed_patch"]["passed"] is True
                 assert "no patch applied" in report["note"].lower()
+                assert "Classic demo · 3 bundled synthetic events" in report["evidence_context"]
+
+                # Extended is still selectable for independent monitoring,
+                # but it must not silently relabel the existing AI result.
+                page.locator('[data-page="threats"]').click()
+                page.locator("#scenarioSelect").select_option("extended")
+                expect(page.locator("#eventCount")).to_have_text("16", timeout=10000)
+                page.locator('[data-page="analysis"]').click()
+                expect(page.locator("#analysisEvidence")).to_contain_text(
+                    "Classic demo · 3 bundled synthetic events"
+                )
                 # Simulate a sleepy hosting service: initial health requests
                 # fail, then recover without reloading the dashboard. No live
                 # Nebius inference is invoked and no browser secrets are used.
@@ -150,6 +175,7 @@ def main() -> None:
                 )
                 recovering_page.locator('[data-page="analysis"]').click()
                 recovering_page.locator("#loadDemo").click()
+                expect(recovering_page.locator("#scenarioSelect")).to_have_value("classic")
                 recovering_page.locator("#analyzeBtn").click()
                 expect(recovering_page.locator("#resultStatus")).to_have_text(
                     "COMPLETED", timeout=30000,
@@ -157,7 +183,7 @@ def main() -> None:
                 assert "MOCK" in recovering_page.locator("#analysisModeLabel").inner_text()
                 recovering_page.close()
 
-                print("PASS: real Chromium browser mock E2E, automatic cold-start recovery, export and private-route protection.")
+                print("PASS: real Chromium browser mock E2E, Classic scenario alignment, automatic cold-start recovery, export and private-route protection.")
             finally:
                 browser.close()
     finally:
