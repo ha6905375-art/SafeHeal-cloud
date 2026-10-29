@@ -48,6 +48,9 @@ jobs:
       - name: Check resolved dependency compatibility
         run: python -m pip check
 
+      - name: Run synthetic model-quality probe (MOCK only; NO credits)
+        run: python -m ai.benchmark --output benchmark-mock.json
+
       - name: Run offline test suite without Nebius credentials
         run: python -m pytest -q
 
