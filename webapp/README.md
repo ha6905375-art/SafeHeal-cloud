@@ -28,6 +28,10 @@ The UI requests `GET /web/demo-analysis` for server-side bundled mock evidence o
 
 The website must remain `AI_MODE=mock` on public Render. Do **not** store the Nebius key or team password in JavaScript, HTML or Git. Custom uploads may be stopped by a hosting gateway.
 
+## Judge-only real inference
+
+For hackathon judging, configure a **different** `SAFEHEAL_JUDGE_USERNAME` and `SAFEHEAL_JUDGE_PASSWORD` (16+ characters) server-side, alongside the protected Nebius runtime configuration. Judge credentials are scoped to `/web/unlock` and `/web/team-nebius-demo` only. They cannot access protected telemetry or unrelated backend routes. Public access remains mock-only and free. See [judging guide](../JUDGING_ACCESS.md). Never commit credentials or expose them in the browser code; per-process throttling does not cap costs.
+
 ## Run and test
 
 From the repository root, install `requirements-dev.txt` using Python 3.11, copy `.env.example` to a private `.env`, set `AI_MODE=mock`, and run:
