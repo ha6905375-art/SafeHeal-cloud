@@ -2,9 +2,7 @@
 
 **SafeHeal Cloud** is a hackathon prototype that analyzes Dockerfile configuration together with security logs, explains relevant threats, proposes a safer Dockerfile, and performs independent **static** reviews. It never executes proposed changes or blocks real traffic.
 
-**Public demo:** https://safeheal-cloud.onrender.com  
-**API contract:** [contracts/api_contract.md](contracts/api_contract.md)  
-**Render deployment:** [DEPLOY_RENDER.md](DEPLOY_RENDER.md)
+**[Try the public demo](https://safeheal-cloud.onrender.com)** · **[API contract](contracts/api_contract.md)** · **[Deployment guide](DEPLOY_RENDER.md)** · **[CI workflow](.github/workflows/ci.yml)**
 
 > **Demonstration, not production security software.** Bundled attack events are synthetic, all response actions are simulated, and proposed fixes are not built or applied.
 
@@ -17,6 +15,16 @@
 **Workflow:** Dockerfile + security logs → findings and event correlations → proposed Dockerfile + diff → independent static checks → downloadable report. All defensive responses remain simulations; no proposed patch is deployed.
 
 **Try it:** [Open the public demo](https://safeheal-cloud.onrender.com), choose **AI Investigation**, load the bundled demo evidence, and start the investigation. No account or API key is needed for the public workflow.
+
+## Why SafeHeal is different
+
+Unlike a Dockerfile-only linter, SafeHeal brings **configuration evidence and suspicious security events together**. It connects findings to the supplied logs, proposes a Dockerfile patch with a visible diff, and independently reviews the proposed changes using static checks. This makes the recommendation easier to inspect rather than asking users to trust an AI answer blindly.
+
+The boundaries matter: the public experience is deterministic mock analysis; real Nemotron inference is available only through an authenticated team demo. Static review does **not** prove a Docker image builds or runs safely, and no patch or defensive action is automatically executed.
+
+## Demo preview
+
+A screenshot or short GIF of the real investigation workflow can be added here once a verified asset is committed to the repository. The [live demo](https://safeheal-cloud.onrender.com) is available now.
 
 ## What the website does
 
@@ -125,7 +133,7 @@ curl.exe -sS -X POST "http://127.0.0.1:8000/api/analyze" `
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-GitHub Actions installs the requirements from scratch on **Ubuntu and Windows (Python 3.11)**, runs `python -m pip check`, then runs tests offline with `AI_MODE=mock`. The verified October 29, 2026 CI run passed on **both Ubuntu and Windows: 401 passed, 2 skipped, 1 warning** per Python test job. The public mock site and private Nebius route were also exercised manually in a browser. CI additionally runs a **real headless Chromium browser E2E** for public mock analysis, report download and private-route authentication (no Nebius credits). A separate Docker Compose smoke job builds the **demo server image** and probes health/mock routes. Neither job executes AI-proposed patches.
+GitHub Actions installs the requirements from scratch on **Ubuntu and Windows (Python 3.11)**, runs `python -m pip check`, then runs tests offline with `AI_MODE=mock`. The reported October 29, 2026 CI run passed on **both Ubuntu and Windows: 401 passed, 2 skipped, 1 warning** per Python test job. Check the [GitHub Actions run history](https://github.com/ywnu/SafeHeal-Cloud/actions) for the run logs and current status. The public mock site and private Nebius route were also exercised manually in a browser. CI additionally runs a **real headless Chromium browser E2E** for public mock analysis, report download and private-route authentication (no Nebius credits). A separate Docker Compose smoke job builds the **demo server image** and probes health/mock routes. Neither job executes AI-proposed patches.
 
 The AI evaluator can be run in mock mode without credits:
 
