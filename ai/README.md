@@ -1,10 +1,6 @@
 # AI Integration — SafeHeal-Cloud
 
-**Owner:** AI API & Integration Specialist (Sara)  
-**Feature branch:** `feature/ai-integration`  
-**Shared integration/test branch:** `test/backend-ai-integration`
-
-This README documents the **AI API & Integration** work. Prompt design and reasoning rules are a separate team responsibility; their final integration should be verified before release.
+This README documents the **AI integration, prompt/reasoning, evaluation, and patch-review** components in this folder. It describes the implementation rather than individual team contributions.
 
 ## Completed work
 
@@ -35,7 +31,7 @@ This README documents the **AI API & Integration** work. Prompt design and reaso
 
 ## AI Reasoning integration (prompts, schema, evaluation)
 
-The Prompt & Reasoning work (Jumanah) is connected to the live service:
+The prompt and reasoning modules are connected to the live service:
 
 | File | How it is used |
 |---|---|
@@ -109,7 +105,7 @@ The agreed `findings`, `correlations`, and `patch` fields match the current back
 
 ## Verified testing
 
-- Current offline result on this branch: **335 passed, 1 skipped, 0 failures**. The test run is offline by default: the repository-root `conftest.py` forces `AI_MODE=mock` and blocks real Nebius network access, so it uses no credits even if `.env` says `live`. The skipped test is the opt-in live test (`RUN_LIVE_TESTS=1`):
+- An earlier offline integration result was **335 passed, 1 skipped, 0 failures**. In the release CI run of October 29, 2026, the full suite on both Windows and Ubuntu reported **401 passed, 2 skipped, 1 warning**. The test run is offline by default: the repository-root `conftest.py` forces `AI_MODE=mock` and blocks real Nebius network access, so it uses no credits even if `.env` says `live`. The skipped test is the opt-in live test (`RUN_LIVE_TESTS=1`):
 
   ```powershell
   .\.venv\Scripts\python.exe -m pytest backend ai/tests -q
@@ -132,9 +128,8 @@ The sample Dockerfile and attack logs used in these tests were **synthetic**. Th
 - Defensive response actions are simulated by the backend.
 - A failed live request does not silently fall back to mock results.
 
-## Remaining work
+## Release verification and scope
 
-- The Prompt & Reasoning files are now loaded into the prompt sent to Nebius (tested offline). They have not yet been retested against the live model on this branch.
-- Retest with the team's latest Security scenario and finalized prompts.
-- Support final frontend/backend/Nebius end-to-end integration and investigate any regressions.
-- Merge only after team approval.
+- The final prompt files, model contract, response parsing, redaction and combined static patch checks are integrated into the release branch and covered by the offline test suite.
+- The real hosted Nebius request completed successfully on October 29, 2026. Its generated patch had malformed line breaks; the contradictory static PASS was corrected and regression-tested. Do not present that original patch as validated.
+- The public browser E2E is mock-only and runs without Nebius credits. No AI-proposed Dockerfile was built, executed or deployed.
