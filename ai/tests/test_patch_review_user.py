@@ -23,7 +23,7 @@ USER_CODES = {"missing_user", "root_user", "unverified_user", "undefined_user"}
 
 # The live Nemotron patch after line-break normalization: creates appuser, never switches to it.
 LIVE_PATCH_WITHOUT_USER = (
-    'FROM python:3.9-slim\nENV AWS_SECRET_KEY=""\nENV DEBUG_MODE="false"\nWORKDIR /app\n'
+    'FROM python:3.11-slim\nENV AWS_SECRET_KEY=""\nENV DEBUG_MODE="false"\nWORKDIR /app\n'
     "RUN useradd -m appuser\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\n"
     'COPY . .\nEXPOSE 5000\nCMD ["python", "app.py"]\n'
 )
