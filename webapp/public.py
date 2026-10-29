@@ -41,24 +41,51 @@ _attempts_lock = Lock()
 WINDOW_SECONDS = 3600
 
 
-def _valid_basic_auth(header: str) -> bool:
-    """Compare credentials without ever exposing them to page assets."""
+def _basic_credentials(header: str) -> tuple[str, str] | None:
+    """Decode HTTP Basic credentials; never log the decoded value."""
     scheme, sep, encoded = header.partition(" ")
     if not sep or scheme.lower() != "basic":
-        return False
+        return None
     try:
         raw = base64.b64decode(encoded, validate=True).decode("utf-8")
     except (ValueError, UnicodeDecodeError, binascii.Error):
-        return False
+        return None
     username, delim, password = raw.partition(":")
-    if not delim:
+    return (username, password) if delim else None
+
+
+def _valid_basic_auth(header: str) -> bool:
+    """Full team access, never granted by the judge-only credentials."""
+    pair = _basic_credentials(header)
+    if pair is None:
         return False
     expected_password = os.getenv("SAFEHEAL_DEMO_PASSWORD", "")
     expected_user = os.getenv("SAFEHEAL_DEMO_USERNAME", "demo")
-    return (
-        secrets.compare_digest(username, expected_user)
-        and secrets.compare_digest(password, expected_password)
+    return bool(expected_password) and (
+        secrets.compare_digest(pair[0], expected_user)
+        and secrets.compare_digest(pair[1], expected_password)
     )
+
+
+def _valid_judge_basic_auth(header: str) -> bool:
+    """Optional separate credentials for judging, limited to the fixed live demo."""
+    expected_user = os.getenv("SAFEHEAL_JUDGE_USERNAME", "").strip()
+    expected_password = os.getenv("SAFEHEAL_JUDGE_PASSWORD", "")
+    if not expected_user or len(expected_password) < 16:
+        return False
+    pair = _basic_credentials(header)
+    return pair is not None and (
+        secrets.compare_digest(pair[0], expected_user)
+        and secrets.compare_digest(pair[1], expected_password)
+    )
+
+
+def _judge_route(request: Request) -> bool:
+    """A judge never gets raw event feeds, API docs or arbitrary private routes."""
+    return (request.method, request.url.path) in {
+        ("GET", "/web/unlock"),
+        ("POST", "/web/team-nebius-demo"),
+    }
 
 
 def _allow_analysis() -> bool:
@@ -101,6 +128,18 @@ async def lifespan(_: FastAPI):
             "SAFEHEAL_DEMO_PASSWORD must be set to at least 12 characters "
             "before exposing SafeHeal Cloud publicly."
         )
+    judge_user = os.getenv("SAFEHEAL_JUDGE_USERNAME", "").strip()
+    judge_password = os.getenv("SAFEHEAL_JUDGE_PASSWORD", "")
+    if judge_user or judge_password:
+        if not judge_user or len(judge_password) < 16:
+            raise RuntimeError(
+                "Judge access requires SAFEHEAL_JUDGE_USERNAME and a "
+                "SAFEHEAL_JUDGE_PASSWORD of at least 16 characters."
+            )
+        if judge_user == os.getenv("SAFEHEAL_DEMO_USERNAME", "demo"):
+            raise RuntimeError(
+                "SAFEHEAL_JUDGE_USERNAME must differ from the team username."
+            )
     yield
 
 
@@ -133,17 +172,27 @@ def _is_public_request(request: Request) -> bool:
 
 @app.middleware("http")
 async def protect_public_demo(request: Request, call_next):
-    if not _is_public_request(request) and not _valid_basic_auth(
-        request.headers.get("authorization", "")
-    ):
-        return JSONResponse(
-            status_code=401,
-            content={"detail": "Private demo credentials required for this endpoint"},
-            headers={
-                "WWW-Authenticate": 'Basic realm="SafeHeal Cloud Private Demo", charset="UTF-8"',
-                "Cache-Control": "no-store",
-            },
-        )
+    auth_header = request.headers.get("authorization", "")
+    team_authenticated = _valid_basic_auth(auth_header)
+    judge_authenticated = (
+        not team_authenticated and _valid_judge_basic_auth(auth_header)
+    )
+    if not _is_public_request(request):
+        if not team_authenticated and not judge_authenticated:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Private demo credentials required for this endpoint"},
+                headers={
+                    "WWW-Authenticate": 'Basic realm="SafeHeal Cloud Private Demo", charset="UTF-8"',
+                    "Cache-Control": "no-store",
+                },
+            )
+        if judge_authenticated and not _judge_route(request):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Judge access is limited to the fixed Nemotron demonstration"},
+                headers={"Cache-Control": "no-store"},
+            )
 
     analysis_request = (
         request.method == "POST" and request.url.path == "/api/analyze"
@@ -234,7 +283,7 @@ async def demo_analysis():
 
 @app.post("/web/team-nebius-demo", include_in_schema=False)
 async def team_nebius_demo():
-    """Team-only real Nebius inference on fixed synthetic evidence.
+    """Authenticated team/judge Nemotron inference on fixed synthetic evidence.
 
     There is intentionally no upload body here; the hosting edge may reject
     the insecure demonstration Dockerfile and attack strings. The ordinary
@@ -285,7 +334,7 @@ def demo_live_events(after_id: int = 0):
 
 @app.get("/web/unlock", include_in_schema=False)
 def unlock_private_demo():
-    """Optional team-only sign-in endpoint for real Nebius demonstrations.
+    """Team/judge sign-in endpoint for real Nebius demonstrations.
 
     Visit this URL in a browser and enter demo credentials. The browser then
     remembers the same-origin Basic Auth credentials for private API calls.

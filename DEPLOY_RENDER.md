@@ -1,7 +1,7 @@
 # SafeHeal Cloud — Render free-hosted demo
 
 **Public site:** https://safeheal-cloud.onrender.com  
-**GitHub deployment branch:** `feature/render-deployment`  
+**GitHub deployment branch:** `main`  
 **App entry point:** `webapp.public:app`. **Never expose `webapp.run:app` to the internet**; it is localhost-only.
 
 ## Setup on Render
@@ -12,7 +12,7 @@ Create a **Web Service** connected to `ywnu/SafeHeal-Cloud` and choose:
 |---|---|
 | Name | `safeheal-cloud` (if the name is available) |
 | Runtime | Python 3 |
-| Branch | `feature/render-deployment` |
+| Branch | `main` |
 | Region | Frankfurt |
 | Root Directory | Empty |
 | Compute | **Free ($0/month)** |
@@ -28,6 +28,8 @@ Create a **Web Service** connected to `ywnu/SafeHeal-Cloud` and choose:
 | `AI_MODE` | **`mock` — keep this value for the public website** |
 | `SAFEHEAL_DEMO_PASSWORD` | Unique private password of at least 12 characters (required at startup) |
 | `SAFEHEAL_DEMO_USERNAME` | Optional, defaults to `demo` |
+| `SAFEHEAL_JUDGE_USERNAME` | Optional separate judge-only username, different from the team username |
+| `SAFEHEAL_JUDGE_PASSWORD` | Optional judge-only password, at least 16 characters; both judge variables must be set together |
 | `NEBIUS_API_KEY` | Secret API key; needed for private real AI only |
 | `NEBIUS_MODEL` | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` |
 | `SAFEHEAL_ALLOW_LIVE_DEMO` | `true` only when the team wants to enable private real inference |
@@ -58,6 +60,14 @@ The public demo runs a **server-side** `GET /web/demo-analysis` and does not upl
 5. Export the result for internal review. Avoid sharing sensitive values or raw authorization headers.
 
 The private request has **no browser-uploaded Dockerfile body**; the server loads bundled synthetic examples directly. Real inference can **consume Nebius credits**. The per-process two-calls/hour default is *not* a provider-side spending cap.
+
+## Judge access for Devpost
+
+**Do not give judges the team administration password.** Scoped judge credentials can be enabled in Render by setting `SAFEHEAL_JUDGE_USERNAME` and `SAFEHEAL_JUDGE_PASSWORD` (at least 16 characters). They allow browser authentication at `/web/unlock` and the fixed synthetic-evidence `/web/team-nebius-demo` only. They do **not** open private raw events, arbitrary backend endpoints or the team administrative area.
+
+Judge access still requires `SAFEHEAL_ALLOW_LIVE_DEMO=true`, `NEBIUS_API_KEY` and `NEBIUS_MODEL` in Render's server environment. **Keep `AI_MODE=mock`** for the public web application. The private route runs one real Nemotron inference per authorized request, billed against Nebius credits. Application request throttling is per process and is **not a financial spending limit**.
+
+Before sharing credentials with judges, enforce Nebius-side spending limits if available, verify the login and real-model workflow in an incognito browser, and check whether the Devpost testing-instructions field is publicly visible. Do not put any real credentials in GitHub, screenshots or the public project description. Keep the demo accessible through the end of judging on **December 15, 2026**. Detailed instructions: [JUDGING_ACCESS.md](JUDGING_ACCESS.md).
 
 ## Hosting constraints and verification
 

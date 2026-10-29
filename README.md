@@ -54,6 +54,12 @@ The separate **Private Team Access → Run real Nemotron** button invokes NVIDIA
 
 A real inference call was successfully completed on the hosted website on **October 29, 2026** (`ai.source: "nebius"`). Its output also revealed a malformed Dockerfile line-break issue: **completed inference does not guarantee a valid proposed patch**. The static review inconsistency has since been corrected in code and regression-tested, without claiming that the originally exported patch passed.
 
+## Judge testing access
+
+The publicly accessible analysis workflow stays in `AI_MODE=mock` and never spends Nebius credits. For the required real-model evaluation, the team can configure **separate, scoped judge-only credentials** on Render. After authenticating at `/web/unlock`, judges can run the fixed synthetic-evidence **Run real Nemotron** workflow; they cannot access private raw event feeds or arbitrary private API endpoints.
+
+Judge credentials, Nebius API keys, and spending controls must be configured server-side; they are **not** published in this repository. The team provides the judge login in Devpost testing instructions, subject to the visibility of that field. See [Judge access and Devpost instructions](JUDGING_ACCESS.md). The project's live AI function is unavailable to judges until those settings are configured.
+
 ## Architecture
 
 | Path | Purpose |
