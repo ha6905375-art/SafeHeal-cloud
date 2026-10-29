@@ -132,6 +132,7 @@ async function loadDemo(){
  state.scenario='classic';
  $('scenarioSelect').value='classic';
  $('settingsScenario').value='classic';
+ refreshDropdownWidgets(); // Keep the visible custom dropdown labels in sync.
  await loadScenario(true);
  let text=DEMO_DOCKER;
  if(state.online){try{const r=await request('/web/demo-dockerfile');if(typeof r==='string'&&r.startsWith('FROM'))text=r}catch{}}
@@ -230,8 +231,10 @@ function clock(){
 }
 /* SafeHeal Cloud — accessible custom dropdowns (progressively enhance native selects).
    Native select elements remain the source of truth for existing filtering logic. */
+let refreshDropdownWidgets=()=>{};
 function enhanceDropdowns(){
   const allWidgets=[];
+  refreshDropdownWidgets=()=>allWidgets.forEach(render);
   const descriptions={
     all:'Show every recorded signal',
     HTTP_REQUEST:'Routine web traffic',
