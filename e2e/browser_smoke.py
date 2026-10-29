@@ -119,7 +119,45 @@ def main() -> None:
                 assert analysis["response"]["mode"] == "simulation"
                 assert analysis["tests"]["proposed_patch"]["passed"] is True
                 assert "no patch applied" in report["note"].lower()
-                print("PASS: real Chromium browser mock E2E, export and private-route protection.")
+                # Simulate a sleepy hosting service: initial health requests
+                # fail, then recover without reloading the dashboard. No live
+                # Nebius inference is invoked and no browser secrets are used.
+                recovering_page = browser.new_page(viewport={"width": 1440, "height": 900})
+                failures = {"count": 0}
+
+                def temporary_health_failure(route):
+                    failures["count"] += 1
+                    if failures["count"] <= 2:
+                        route.fulfill(
+                            status=503,
+                            content_type="application/json",
+                            body='{"detail":"Server waking up"}',
+                        )
+                    else:
+                        route.continue_()
+
+                recovering_page.route("**/api/health", temporary_health_failure)
+                recovering_page.goto(url, wait_until="domcontentloaded", timeout=20000)
+                expect(recovering_page.locator("#modeText")).to_have_text(
+                    "RECONNECTING · AUTO RETRY", timeout=10000,
+                )
+                expect(recovering_page.locator("#modeText")).to_have_text(
+                    "BACKEND CONNECTED", timeout=25000,
+                )
+                assert failures["count"] >= 3, failures
+                expect(recovering_page.locator("#topologyBadge")).to_have_text(
+                    "BACKEND DEMO DATA", timeout=10000,
+                )
+                recovering_page.locator('[data-page="analysis"]').click()
+                recovering_page.locator("#loadDemo").click()
+                recovering_page.locator("#analyzeBtn").click()
+                expect(recovering_page.locator("#resultStatus")).to_have_text(
+                    "COMPLETED", timeout=30000,
+                )
+                assert "MOCK" in recovering_page.locator("#analysisModeLabel").inner_text()
+                recovering_page.close()
+
+                print("PASS: real Chromium browser mock E2E, automatic cold-start recovery, export and private-route protection.")
             finally:
                 browser.close()
     finally:
