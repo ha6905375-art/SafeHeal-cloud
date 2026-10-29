@@ -8,6 +8,16 @@
 
 > **Demonstration, not production security software.** Bundled attack events are synthetic, all response actions are simulated, and proposed fixes are not built or applied.
 
+## At a glance
+
+**Problem:** Security teams must interpret configuration risks and suspicious events across different sources. A recommendation is not useful unless its evidence and safety limits are clear.
+
+**Approach:** SafeHeal Cloud combines deterministic checks with evidence-grounded AI investigation and an independent static review of proposed Dockerfile changes. The public demo uses mock analysis; a separately authenticated team-only path demonstrates real Nemotron inference.
+
+**Workflow:** Dockerfile + security logs → findings and event correlations → proposed Dockerfile + diff → independent static checks → downloadable report. All defensive responses remain simulations; no proposed patch is deployed.
+
+**Try it:** [Open the public demo](https://safeheal-cloud.onrender.com), choose **AI Investigation**, load the bundled demo evidence, and start the investigation. No account or API key is needed for the public workflow.
+
 ## What the website does
 
 The live dashboard is implemented in **`webapp/`**. Its pages include Overview, AI Investigation, Docker Security, Threat Monitoring, Live Attack Feed, Reports, and Settings.
