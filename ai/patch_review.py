@@ -65,7 +65,7 @@ OFFICIAL_PYTHON_IMAGE_NAMES = {
     "python", "library/python", "docker.io/library/python",
     "index.docker.io/library/python",
 }
-PYTHON_MINOR_TAG_RE = re.compile(r"^(\\d+)\\.(\\d+)(?=$|[.\\-_])")
+PYTHON_MINOR_TAG_RE = re.compile(r"^(\d+)\.(\d+)(?=$|[._-])")
 
 
 def _python_base_issue(from_args: str) -> dict[str, str] | None:
