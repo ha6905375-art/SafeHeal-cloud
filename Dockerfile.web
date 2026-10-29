@@ -1,5 +1,5 @@
 # The public SafeHeal showcase only. Never build AI-proposed Dockerfiles automatically.
-FROM python:3.11-slim-bookworm
+FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
