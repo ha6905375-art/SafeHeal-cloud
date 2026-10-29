@@ -266,7 +266,7 @@ LOG_SENSITIVE_KEY_RE = re.compile(
 )
 INLINE_LOG_SECRET_RE = re.compile(
     r"(?i)(\b(?:api[_-]?key|access[_-]?token|password|passwd|secret|authorization)"
-    r"\s*[:=]\s*[\\"']?)([^\s&\\"']{4,})"
+    r"\s*[:=]\s*)([^\s&;,]+)"
 )
 BEARER_RE = re.compile(r"(?i)\b(Bearer|Basic)\s+([A-Za-z0-9_./+=-]{6,})")
 
