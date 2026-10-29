@@ -89,7 +89,8 @@ def main() -> None:
                 # Force the explorer to Extended first. The bundled AI
                 # workflow must then switch back to Classic evidence.
                 page.locator('[data-page="threats"]').click()
-                page.locator("#scenarioSelect").select_option("extended")
+                page.locator("#scenarioSelect + .sh-dropdown-trigger").click()
+                page.locator('#sh-menu-scenarioSelect [role="option"][data-value="extended"]').click()
                 expect(page.locator("#eventCount")).to_have_text("16", timeout=10000)
                 page.locator('[data-page="analysis"]').click()
                 page.locator("#loadDemo").click()
@@ -138,7 +139,8 @@ def main() -> None:
                 # Extended is still selectable for independent monitoring,
                 # but it must not silently relabel the existing AI result.
                 page.locator('[data-page="threats"]').click()
-                page.locator("#scenarioSelect").select_option("extended")
+                page.locator("#scenarioSelect + .sh-dropdown-trigger").click()
+                page.locator('#sh-menu-scenarioSelect [role="option"][data-value="extended"]').click()
                 expect(page.locator("#eventCount")).to_have_text("16", timeout=10000)
                 page.locator('[data-page="analysis"]').click()
                 expect(page.locator("#analysisEvidence")).to_contain_text(
