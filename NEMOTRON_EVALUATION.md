@@ -48,6 +48,23 @@ Remove-Item Env:SAFEHEAL_BENCHMARK_LIVE
 - `AI_MODE` from local `.env` does not override the explicit mode chosen in the script. Neither mode exposes a new API route or changes Render's public `AI_MODE=mock`.
 - The report contains only category labels, counts, aggregate token usage and static-review booleans, not Dockerfile contents or secrets. Results are ignored by Git under `benchmark-*.json`.
 
+## Targeted follow-up after an initial 12-case live run
+
+If the first live report identifies only `unsupported_python_base` as unclassified and `mixed_attack` as a failed static patch review, **do not repeat all 12 cases**. The following explicitly bounded command runs only those two synthetic fixtures (at most two paid model requests):
+
+```powershell
+$env:SAFEHEAL_BENCHMARK_LIVE = "YES"
+try {
+    .\.venv\Scripts\python.exe -m ai.benchmark --live --cases unsupported_python_base,mixed_attack --output benchmark-targeted.json
+} finally {
+    Remove-Item Env:SAFEHEAL_BENCHMARK_LIVE -ErrorAction SilentlyContinue
+}
+```
+
+Run it **only** if a new real-model investigation is authorized and local Nebius credits are available. The model's responses may differ from the earlier run. Inspect just `unmapped_title_indicators` (a safe allowlist of words, not model text), `static_review_issue_codes`, and `static_patch_passed` for each case. Do not paste the private key or complete model replies.
+
+These extra diagnostic fields deliberately omit raw Dockerfile contents, raw model finding titles, and patch text to reduce accidental disclosure. The remaining code labels are still only static review findings. A reported unsupported Python category must be manually verified; a taxonomy keyword miss must **not** be silently relabeled as a correct detection to improve the published metric.
+
 ## Review before quoting the results
 
 1. Check `mode=live` and `ai_source=nebius` on every completed case.
