@@ -19,6 +19,7 @@ from typing import Any
 
 from ai.config import get_settings
 from ai.service import analyze_evidence
+from backend.validator import review_proposed_patch
 
 SAFE_HEADER = (
     "FROM python:3.11-slim\n"
@@ -178,6 +179,10 @@ def benchmark(mode: str = "mock", max_cases: int | None = None) -> dict[str, Any
             })
             continue
 
+        # Reuse the same INDEPENDENT combined backend + AI static review as the
+        # public API; analyze_evidence() alone only returns the AI-layer review.
+        # No build or execution of any proposed Dockerfile occurs.
+        review_proposed_patch(docker, result)
         predicted, unmapped = categories(result.get("findings", []))
         tp = len(expected & predicted)
         fp = len(predicted - expected) + unmapped
