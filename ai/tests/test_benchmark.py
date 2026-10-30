@@ -101,3 +101,51 @@ def test_benchmark_report_has_no_raw_evidence_or_secrets():
     assert "SYNTHETIC_BENCHMARK_SECRET" not in output
     assert "RUN useradd" not in output
     assert "FROM python:" not in output
+
+
+def test_targeted_selection_runs_only_requested_cases_without_network(monkeypatch):
+    from ai import benchmark as module
+    seen = []
+
+    def stub_analyze(docker, logs, *, settings):
+        assert settings.mode == "mock"
+        seen.append(docker)
+        return {"status": "completed", "findings": [], "correlations": [],
+                "ai": {"source": "mock"}, "patch": {}, "tests": {}}
+
+    monkeypatch.setattr(module, "analyze_evidence", stub_analyze)
+    report = module.benchmark("mock", case_names=["mixed_attack", "unsupported_python_base"])
+    assert report["attempted"] == 2
+    assert report["completed"] == 2
+    assert [c["name"] for c in report["cases"]] == [
+        "unsupported_python_base", "mixed_attack",
+    ]
+    assert len(seen) == 2
+
+
+def test_targeted_diagnostics_are_coded_without_raw_model_text(monkeypatch):
+    from ai import benchmark as module
+
+    def stub_analyze(docker, logs, *, settings):
+        return {"status": "completed",
+                "findings": [{"title": "Deprecated runtime image PRIVATE_DO_NOT_LOG"}],
+                "correlations": [], "patch": {}, "tests": {},
+                "ai": {"source": "mock"}}
+
+    monkeypatch.setattr(module, "analyze_evidence", stub_analyze)
+    report = module.benchmark("mock", case_names=["unsupported_python_base"])
+    case = report["cases"][0]
+    assert case["unmapped_findings"] == 1
+    assert set(case["unmapped_title_indicators"][0]) == {"deprecated", "runtime"}
+    assert "PRIVATE_DO_NOT_LOG" not in __import__("json").dumps(report)
+
+
+def test_targeted_selection_guards_invalid_and_duplicate_names():
+    import pytest
+    from ai import benchmark as module
+    with pytest.raises(ValueError, match="Unknown case"):
+        module.benchmark("mock", case_names=["not_a_case"])
+    with pytest.raises(ValueError, match="unique"):
+        module.benchmark("mock", case_names=["mixed_attack", "mixed_attack"])
+    with pytest.raises(ValueError, match="either"):
+        module.benchmark("mock", max_cases=2, case_names=["mixed_attack"])
