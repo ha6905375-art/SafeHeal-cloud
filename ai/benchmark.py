@@ -229,7 +229,8 @@ def benchmark(mode: str = "mock", max_cases: int | None = None, case_names: list
 
         # Diagnostic output is only from synthetic cases. Never store prompts,
         # Dockerfile contents, model replies, keys, or detailed patch messages.
-        # Model titles are deliberately NOT included because they may echo secrets.
+        # Only predefined, non-sensitive title indicator words are included,
+        # not the model's original title, which might echo sensitive data.
         ai_review = result.get("ai", {}).get("patch_review") or {}
         review_codes = [
             issue.get("code", "unknown")
@@ -243,15 +244,19 @@ def benchmark(mode: str = "mock", max_cases: int | None = None, case_names: list
             "predicted": sorted(predicted),
             "tp": tp, "fp": fp, "fn": fn,
             "unmapped_findings": unmapped,
-            "finding_titles_for_manual_review": (
-                [
-                    re.sub(r"[^A-Za-z0-9 _().,:;/-]", "?", str(f.get("title", "")))[:100]
-                    for f in result.get("findings", [])
-                    if isinstance(f, dict) and not any(
-                        p.search(str(f.get("title", ""))) for p in CATEGORIES.values()
+            "unmapped_title_indicators": [
+                sorted([
+                    signal for signal in (
+                        "python", "outdated", "unsupported", "deprecated",
+                        "base image", "version", "runtime", "support", "eol"
                     )
-                ] if mode == "mock" else []
-            ),
+                    if signal in str(f.get("title", "")).lower()
+                ])
+                for f in result.get("findings", [])
+                if isinstance(f, dict) and not any(
+                    p.search(str(f.get("title", ""))) for p in CATEGORIES.values()
+                )
+            ],
             "static_review_issue_codes": review_codes,
             "expected_correlations": len(expected_pairs),
             "observed_correlations": len(actual_pairs),
@@ -287,7 +292,7 @@ def main() -> int:
     parser.add_argument("--output", help="save aggregate scores and per-case proxy counts as JSON")
     args = parser.parse_args()
     try:
-        case_names = args.cases.split(",") if args.cases else None
+        case_names = [x.strip() for x in args.cases.split(",")] if args.cases else None
         report = benchmark("live" if args.live else "mock", args.max_cases, case_names)
     except ValueError as exc:
         parser.error(str(exc))
