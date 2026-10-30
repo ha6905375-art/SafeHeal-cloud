@@ -15,3 +15,6 @@ venv/
 # Local development
 .DS_Store
 .pytest_cache/
+
+# Local AI benchmark results; may contain model metadata. Do not commit.
+benchmark-*.json
