@@ -51,6 +51,9 @@ def test_benchmark_mock_run_is_offline_and_reports_correlation_metrics(monkeypat
     assert set(report["correlation_metrics"]) == {"precision", "recall", "f1"}
     assert report["benign_cases_completed"] >= 2
     assert all(case["ai_source"] == "mock" for case in report["cases"])
+    # The benchmark invokes the same combined static review as backend responses.
+    assert report["cases"][0]["static_patch_passed"] is None  # safe; no patch needed
+    assert report["cases"][1]["static_patch_passed"] is True  # root remediation
 
 
 def test_real_mode_requires_explicit_consent_and_case_limit(monkeypatch):
