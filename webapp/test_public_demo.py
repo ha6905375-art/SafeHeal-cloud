@@ -71,6 +71,14 @@ def test_authorized_users_can_unlock_private_route():
         response = client.get("/web/unlock", headers=credentials())
     assert response.status_code == 200
     assert "Private SafeHeal Cloud access enabled" in response.text
+    assert response.headers["content-type"].startswith("text/html")
+    assert 'href="/#analysis"' in response.text
+    assert "Open AI Investigation" in response.text
+    assert "Run real Nemotron" in response.text
+    assert "credit-consuming" in response.text
+    assert "no-store" in response.headers["cache-control"]
+    assert "default-src 'none'" in response.headers["content-security-policy"]
+    assert "a-long-demo-password-123" not in response.text
 
 
 def test_judge_unlock_and_public_mock_are_available(monkeypatch):
@@ -82,6 +90,8 @@ def test_judge_unlock_and_public_mock_are_available(monkeypatch):
         )
         public = client.get("/web/demo-analysis")
     assert unlock.status_code == 200
+    assert 'href="/#analysis"' in unlock.text
+    assert "judge-only-long-password-456" not in unlock.text
     assert public.status_code == 200
     assert public.json()["ai"]["source"] == "mock"
 
