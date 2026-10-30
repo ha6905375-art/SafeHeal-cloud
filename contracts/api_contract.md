@@ -1,6 +1,6 @@
 # SafeHeal Cloud API Contract
 
-This document describes the current **`feature/render-deployment`** implementation. The complete example response is in [example_response.json](example_response.json).
+This document describes the current **`main`** implementation. The complete example response is in [example_response.json](example_response.json).
 
 **Scope:** Hackathon prototype. Bundled logs are synthetic, Dockerfile validation is **static**, and all proposed defensive actions are **simulated** (no container is built, no patch applied, no real firewall change).
 
