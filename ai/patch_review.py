@@ -160,6 +160,50 @@ def _final_user_issue(stage: list[tuple[str, str]]) -> dict[str, str] | None:
     return None
 
 
+def _actionable_unchanged_evidence(line: str, finding: dict[str, Any]) -> bool:
+    """Only flag unchanged evidence when the cited instruction itself is risky.
+
+    AI may cite an innocent FROM/CMD/WORKDIR as context for a MISSING USER.
+    Retaining that line is not proof the finding remains unresolved.
+    This guard is conservative and cannot establish full remediation.
+    """
+    match = INSTRUCTION_RE.match(line)
+    if not match:
+        return False
+    instruction, arguments = match.group(1).upper(), match.group(2).strip()
+    title = str(finding.get("title") or finding.get("issue") or "").lower()
+
+    if instruction in ("ENV", "ARG"):
+        if _hardcoded_secrets([(instruction, arguments)]):
+            return True
+        return bool(re.search(
+            r"\bDEBUG\w*\s*(?:=|\s+)\s*['\"]?(?:true|1|yes|on)\b",
+            arguments, re.IGNORECASE,
+        ))
+    if instruction == "EXPOSE":
+        return any(port.split("/")[0] == "22" for port in arguments.split())
+    if instruction == "RUN":
+        return bool(re.search(
+            r"\bopenssh-server\b|\bchmod\s+(?:-R\s+)?777\b",
+            arguments, re.IGNORECASE,
+        ))
+    if instruction == "USER":
+        user = _user_token(arguments).split(":")[0].lower()
+        return user in ("root", "0")
+    if instruction == "FROM":
+        if _python_base_issue(arguments) is not None:
+            return True
+        # Catch non-Python base-image issues without interpreting a normal
+        # FROM line as evidence that a missing USER was not fixed.
+        return bool(re.search(
+            r"\b(base image|base tag|unpinned|untrusted image|"
+            r"outdated image|image version|image digest|"
+            r"unsupported python|end.of.life python)\b",
+            title, re.IGNORECASE,
+        ))
+    return False
+
+
 def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) -> dict[str, Any]:
     """Return {"type": "static", "passed": bool, "issues": [{code, message}], "note": str}."""
     issues: list[dict[str, str]] = []
@@ -219,10 +263,17 @@ def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) ->
     for finding in findings:
         for line in str(finding.get("evidence", "")).splitlines():
             line = line.strip()
-            if line and INSTRUCTION_RE.match(line) and line in original_lines and line in patched_lines:
-                issues.append({"code": "unresolved_finding",
-                               "message": f"{finding.get('id', '?')} ({finding.get('title') or finding.get('issue', '')}): "
-                                          f"evidence line is unchanged in the patch: {line}"})
+            if (line and line in original_lines and line in patched_lines
+                    and _actionable_unchanged_evidence(line, finding)):
+                directive = INSTRUCTION_RE.match(line).group(1).upper()
+                issues.append({
+                    "code": "unresolved_finding",
+                    # Do not echo the original instruction: it may contain a secret.
+                    "message": (
+                        f"{finding.get('id', '?')}: unsafe {directive} evidence "
+                        "remains unchanged in the proposed patch."
+                    ),
+                })
 
     for line in patched.splitlines():
         if OVERCLAIM_RE.match(line):
