@@ -23,7 +23,7 @@ from pathlib import Path
 from threading import Lock
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.concurrency import run_in_threadpool
 from ai.config import get_settings, load_dotenv
 from ai.service import analyze_evidence
@@ -334,12 +334,54 @@ def demo_live_events(after_id: int = 0):
 
 @app.get("/web/unlock", include_in_schema=False)
 def unlock_private_demo():
-    """Team/judge sign-in endpoint for real Nebius demonstrations.
+    """Landing page after team/judge HTTP Basic authentication.
 
-    Visit this URL in a browser and enter demo credentials. The browser then
-    remembers the same-origin Basic Auth credentials for private API calls.
+    Only authenticated visitors can reach this route (see middleware). Provide
+    an obvious path to the actual investigation; the dashboard's #analysis
+    fragment is handled by app.js. Never launch paid inference automatically.
     """
-    return PlainTextResponse("Private SafeHeal Cloud access enabled. Return to the dashboard.")
+    return HTMLResponse(
+        """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Access enabled | SafeHeal Cloud</title>
+  <style>
+    :root {color-scheme: dark;}
+    body {margin: 0; min-height: 100vh; display: grid; place-items: center;
+      font-family: system-ui, sans-serif; background: #0b1225; color: #eef1ff;}
+    main {box-sizing: border-box; width: min(92vw, 540px); padding: 2rem;
+      border: 1px solid #343a67; border-radius: 16px; background: #131d37;}
+    h1 {font-size: 1.65rem; margin: 0 0 1rem;}
+    p {color: #bbc6e5; line-height: 1.6;}
+    .action {display: inline-block; margin-top: 1rem; padding: .85rem 1.1rem;
+      border-radius: 9px; color: #fff; background: #6245df;
+      font-weight: 700; text-decoration: none;}
+    a:focus-visible {outline: 3px solid #66d9e8; outline-offset: 4px;}
+    .secondary {display: block; margin-top: 1.5rem; color: #bcc9ff;}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Access enabled</h1>
+    <p>Private SafeHeal Cloud access enabled. Your sign-in was accepted.</p>
+    <p>Continue to the AI Investigation workspace. Under
+      <strong>Private Team Access</strong>, choose
+      <strong>Run real Nemotron</strong> if you intend to make a live,
+      credit-consuming inference request. No live request runs automatically.</p>
+    <a class="action" href="/#analysis">Open AI Investigation</a>
+    <a class="secondary" href="/">Return to the dashboard</a>
+  </main>
+</body>
+</html>""",
+        headers={
+            "Content-Security-Policy": (
+                "default-src 'none'; style-src 'unsafe-inline'; "
+                "base-uri 'none'; form-action 'none'"
+            )
+        },
+    )
 
 
 # Preserve existing backend routes and middleware without rewriting them.
