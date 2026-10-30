@@ -270,8 +270,10 @@ def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) ->
                     "code": "unresolved_finding",
                     # Do not echo the original instruction: it may contain a secret.
                     "message": (
-                        f"{finding.get('id', '?')}: unsafe {directive} evidence "
-                        "remains unchanged in the proposed patch."
+                        f"{finding.get('id', '?')} "
+                        f"({finding.get('title') or finding.get('issue', '')}): "
+                        f"unsafe {directive} evidence remains unchanged in the "
+                        "proposed patch (full evidence line omitted)."
                     ),
                 })
 
