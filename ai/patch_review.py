@@ -56,6 +56,80 @@ def _final_stage(instructions: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return instructions[starts[-1]:] if starts else instructions
 
 
+# These checks are independent of the AI's findings/evidence. A model that
+# forgets to report SSH or DEBUG must not be able to make its own patch PASS.
+# Deliberately limit runtime checks to the final stage of a multi-stage image.
+DEBUG_ENV_KEYS = frozenset({
+    "DEBUG", "DEBUG_MODE", "APP_DEBUG", "FLASK_DEBUG", "DJANGO_DEBUG",
+    "PYTHONASYNCIODEBUG",
+})
+ENV_ASSIGNMENT_RE = re.compile(
+    r"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\"[^\"]*\"|'[^']*'|\S+)"
+)
+SSH_INSTALL_RE = re.compile(
+    r"\b(?:apt-get|apt|apk|dnf|yum)\s+"
+    r"(?:(?:--?[\w-]+)\s+)*(?:install|add)\b"
+    r"[^;&|\n]*\b(?:openssh-server|openssh)\b",
+    re.IGNORECASE,
+)
+DEBUG_TRUE = frozenset({"true", "1", "yes", "on"})
+DEBUG_FALSE = frozenset({"false", "0", "no", "off"})
+
+
+def _runtime_risk_issues(stage: list[tuple[str, str]]) -> list[dict[str, str]]:
+    """Best-effort final-stage SSH and effective debug checks, independent of AI.
+
+    Only the final-stage ENV instructions determine its explicit debug settings;
+    a later ENV assignment overrides an earlier one. Unknown/dynamic values are
+    not declared safe. Static parsing cannot verify inherited base-image ENV,
+    shell side effects or actual service startup.
+    """
+    issues: list[dict[str, str]] = []
+    debug: dict[str, str] = {}
+    for name, args in stage:
+        if name == "ENV":
+            pairs = ENV_ASSIGNMENT_RE.findall(args)
+            if not pairs and "=" not in args:
+                # Legacy Dockerfile ENV key value syntax.
+                parts = args.split(None, 1)
+                if len(parts) == 2:
+                    pairs = [(parts[0], parts[1])]
+            for key, raw_value in pairs:
+                upper = key.upper()
+                if upper in DEBUG_ENV_KEYS:
+                    debug[upper] = raw_value.strip().strip("'\"").strip().lower()
+        if name == "RUN" and SSH_INSTALL_RE.search(args):
+            issues.append({
+                "code": "ssh_server_installed",
+                "message": (
+                    "The final build stage installs an OpenSSH server package; "
+                    "remove it or manually review the image's attack surface."
+                ),
+            })
+        if name == "EXPOSE" and any(
+            port.split("/")[0] == "22" for port in args.split()
+        ):
+            issues.append({
+                "code": "ssh_port_exposed",
+                "message": "The proposed Dockerfile still exposes SSH port 22.",
+            })
+    for key, value in debug.items():
+        if value in DEBUG_TRUE:
+            issues.append({
+                "code": "debug_enabled",
+                "message": f"Final-stage {key} enables debug mode.",
+            })
+        elif value not in DEBUG_FALSE:
+            issues.append({
+                "code": "unverified_debug_flag",
+                "message": (
+                    f"Final-stage {key} cannot be confirmed disabled by a "
+                    "static check; resolve or manually verify the setting."
+                ),
+            })
+    return issues
+
+
 # Official Python Docker Hub image tags only. This is a version-support
 # guardrail, not a registry lookup, an image vulnerability scan, or a build.
 # As of 2026-10-30, Python 3.10 and earlier are end-of-life; 3.11+ are
@@ -242,6 +316,7 @@ def review_patch(original: str, patched: str, findings: list[dict[str, Any]]) ->
             if image_issue:
                 issues.append(image_issue)
     stage = _final_stage(instructions)
+    issues.extend(_runtime_risk_issues(stage))
 
     for key in _hardcoded_secrets(instructions):
         issues.append({"code": "hardcoded_secret",
