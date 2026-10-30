@@ -129,18 +129,26 @@ def _returned_pairs(result: dict) -> set[tuple[str, str]]:
     }
 
 
-def benchmark(mode: str = "mock", max_cases: int | None = None) -> dict[str, Any]:
+def benchmark(mode: str = "mock", max_cases: int | None = None, case_names: list[str] | None = None) -> dict[str, Any]:
     if mode not in ("mock", "live"):
         raise ValueError("mode must be mock or live")
     if max_cases is not None and not 1 <= max_cases <= len(CASES):
         raise ValueError(f"max_cases must be 1..{len(CASES)}")
+    if case_names is not None:
+        if max_cases is not None:
+            raise ValueError("Use either --cases or --max-cases, not both")
+        if not case_names or len(case_names) != len(set(case_names)):
+            raise ValueError("--cases needs one or more unique case names")
+        known = {item[0] for item in CASES}
+        if set(case_names) - known:
+            raise ValueError(f"Unknown case names: {', '.join(sorted(set(case_names)-known))}")
 
     settings = get_settings()
     if mode == "live":
         if os.getenv("SAFEHEAL_BENCHMARK_LIVE") != "YES":
             raise ValueError("Refusing real API calls: set SAFEHEAL_BENCHMARK_LIVE=YES")
-        if max_cases is None:
-            raise ValueError("Paid mode requires an explicit --max-cases limit")
+        if max_cases is None and case_names is None:
+            raise ValueError("Paid mode requires an explicit --max-cases limit or --cases selection")
         if not settings.api_key or not settings.model:
             raise ValueError("NEBIUS_API_KEY and NEBIUS_MODEL must be configured locally")
         # No hidden retries when benchmarking: makes budget planning more predictable.
@@ -148,7 +156,11 @@ def benchmark(mode: str = "mock", max_cases: int | None = None) -> dict[str, Any
     else:
         settings = replace(settings, mode="mock", api_key="")
 
-    chosen = CASES[:max_cases] if max_cases is not None else CASES
+    chosen = (
+        [case for case in CASES if case[0] in set(case_names)]
+        if case_names is not None else
+        CASES[:max_cases] if max_cases is not None else CASES
+    )
     report: dict[str, Any] = {
         "mode": mode,
         "metric_scope": "manually labeled synthetic categories and event pairs; exploratory proxy NOT production model accuracy",
@@ -215,6 +227,15 @@ def benchmark(mode: str = "mock", max_cases: int | None = None) -> dict[str, Any
                 if type(value) is int and value >= 0:
                     report["usage"][field] += value
 
+        # Diagnostic output is only from synthetic cases. Never store prompts,
+        # Dockerfile contents, model replies, keys, or detailed patch messages.
+        # Model titles are deliberately NOT included because they may echo secrets.
+        ai_review = result.get("ai", {}).get("patch_review") or {}
+        review_codes = [
+            issue.get("code", "unknown")
+            for issue in ai_review.get("issues", [])
+            if isinstance(issue, dict)
+        ]
         report["cases"].append({
             "name": name,
             "status": "completed",
@@ -222,6 +243,16 @@ def benchmark(mode: str = "mock", max_cases: int | None = None) -> dict[str, Any
             "predicted": sorted(predicted),
             "tp": tp, "fp": fp, "fn": fn,
             "unmapped_findings": unmapped,
+            "finding_titles_for_manual_review": (
+                [
+                    re.sub(r"[^A-Za-z0-9 _().,:;/-]", "?", str(f.get("title", "")))[:100]
+                    for f in result.get("findings", [])
+                    if isinstance(f, dict) and not any(
+                        p.search(str(f.get("title", ""))) for p in CATEGORIES.values()
+                    )
+                ] if mode == "mock" else []
+            ),
+            "static_review_issue_codes": review_codes,
             "expected_correlations": len(expected_pairs),
             "observed_correlations": len(actual_pairs),
             "correlation_tp": ctp, "correlation_fp": cfp, "correlation_fn": cfn,
@@ -250,11 +281,14 @@ def main() -> int:
     parser.add_argument("--live", action="store_true",
                         help="make PAID Nebius calls; requires SAFEHEAL_BENCHMARK_LIVE=YES")
     parser.add_argument("--max-cases", type=int,
-                        help=f"run first N of {len(CASES)} cases; REQUIRED for paid mode")
+                        help=f"run first N of {len(CASES)} cases")
+    parser.add_argument("--cases", type=str,
+                        help="comma-separated named synthetic cases, e.g. unsupported_python_base,mixed_attack")
     parser.add_argument("--output", help="save aggregate scores and per-case proxy counts as JSON")
     args = parser.parse_args()
     try:
-        report = benchmark("live" if args.live else "mock", args.max_cases)
+        case_names = args.cases.split(",") if args.cases else None
+        report = benchmark("live" if args.live else "mock", args.max_cases, case_names)
     except ValueError as exc:
         parser.error(str(exc))
     print(json.dumps(report, indent=2))
